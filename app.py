@@ -268,22 +268,56 @@ def scan_student_results():
     return results
 
 def fetch_remote_student_results():
-    """Fetches student exam results and registered classes from remote student app (14214.pythonanywhere.com)."""
+    """Fetches student exam results and registered classes from remote student app or PythonAnywhere Official REST API."""
     if requests is None:
         return [], []
     cfg = load_sync_config()
     remote_url = cfg.get('remote_url', '').strip().rstrip('/')
-    if not remote_url:
-        return [], []
+    sync_token = cfg.get('sync_token', '').strip()
     
-    try:
-        resp = requests.get(f"{remote_url}/api/get_student_results", timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get('results', []), data.get('classes', [])
-    except Exception as e:
-        print(f"[Remote Results Fetch Error] {e}")
-    return [], []
+    classes = []
+    results = []
+
+    # 1. Try PythonAnywhere Official REST API if API token is configured
+    if sync_token:
+        try:
+            pa_user = '14214'
+            pa_url = cfg.get('pa_account_url', '')
+            if 'user/' in pa_url:
+                pa_user = pa_url.split('user/')[1].split('/')[0].strip() or '14214'
+                
+            headers = {'Authorization': f'Token {sync_token}'}
+            api_path_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/hasil%20ujian/"
+            
+            resp = requests.get(api_path_url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                contents = data.get('contents', [])
+                for item in contents:
+                    if isinstance(item, dict) and item.get('type') == 'directory':
+                        folder_name = os.path.basename(item.get('path', ''))
+                        norm_k = folder_name if folder_name.startswith('Kelas') else f"Kelas {folder_name}"
+                        if norm_k not in classes:
+                            classes.append(norm_k)
+        except Exception as e:
+            print(f"[PythonAnywhere REST API Error] {e}")
+
+    # 2. Try App API Endpoint (/api/get_student_results)
+    if remote_url:
+        try:
+            resp = requests.get(f"{remote_url}/api/get_student_results", timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                res_list = data.get('results', [])
+                cls_list = data.get('classes', [])
+                for c in cls_list:
+                    if c not in classes:
+                        classes.append(c)
+                results.extend(res_list)
+        except Exception as e:
+            print(f"[Remote Results Fetch Error] {e}")
+
+    return results, sorted(classes)
 
 def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, essay_path=None, kunci_essay_path=None):
     """Pushes uploaded DOCX files directly to the remote PythonAnywhere Student Exam app via HTTP POST."""

@@ -23,6 +23,12 @@
     </div>
 
     <div class="form-group">
+      <label class="form-label" for="sync_token">PythonAnywhere API Token:</label>
+      <input type="text" name="sync_token" id="sync_token" class="form-control" placeholder="Paste API Token PythonAnywhere (cth: d82ad83dee1a...)" value="{{ current_sync_token }}">
+      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Token API dari menu Account -> API Token di PythonAnywhere untuk sinkronisasi file cloud.</div>
+    </div>
+
+    <div class="form-group">
       <label class="form-label" for="pa_account_url">Link Dashboard User PythonAnywhere:</label>
       <input type="url" name="pa_account_url" id="pa_account_url" class="form-control" placeholder="https://www.pythonanywhere.com/user/14214/" value="{{ pa_account_url }}">
     </div>
