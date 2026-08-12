@@ -570,9 +570,33 @@ def view_hasil(filepath):
     if os.path.exists(full_path) and full_path.startswith(os.path.abspath(hasil_dir)):
         return send_file(full_path)
 
-    # Fallback to remote student server (14214.pythonanywhere.com)
     cfg = load_sync_config()
     remote_url = cfg.get('remote_url', '').strip().rstrip('/')
+    sync_token = cfg.get('sync_token', '').strip()
+    
+    # 1. Try PythonAnywhere REST API if API token is configured
+    if sync_token:
+        try:
+            pa_user = '14214'
+            pa_url = cfg.get('pa_account_url', '')
+            if 'user/' in pa_url:
+                parts = pa_url.split('user/')[1].split('/')
+                if parts and parts[0]:
+                    pa_user = parts[0].strip()
+                    
+            headers = {'Authorization': f'Token {sync_token}'}
+            clean_fp = filepath.replace('\\', '/')
+            api_file_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/hasil%20ujian/{clean_fp}"
+            
+            r_resp = requests.get(api_file_url, headers=headers, timeout=10)
+            if r_resp.status_code == 200:
+                from flask import Response
+                mtype = 'text/html' if clean_fp.endswith('.html') else 'text/plain'
+                return Response(r_resp.content, mimetype=mtype)
+        except Exception as e:
+            print(f"[PA File Fetch Error] {e}")
+
+    # 2. Fallback to remote student app URL
     if remote_url and requests:
         try:
             r_resp = requests.get(f"{remote_url}/view-hasil/{filepath}", timeout=10)
