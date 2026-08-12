@@ -378,11 +378,57 @@ def fetch_remote_student_results():
     return results, sorted(classes)
 
 def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, essay_path=None, kunci_essay_path=None):
-    """Pushes uploaded DOCX files directly to the remote PythonAnywhere Student Exam app via HTTP POST."""
+    """Pushes uploaded DOCX files directly to the remote PythonAnywhere Student Exam app via PythonAnywhere REST API or HTTP POST."""
     if requests is None:
         return False, "Package 'requests' belum terinstall."
     cfg = load_sync_config()
+    sync_token = cfg.get('sync_token', '').strip()
     remote_url = cfg.get('remote_url', '').strip().rstrip('/')
+    
+    # 1. Try uploading via PythonAnywhere Official REST API if API token is configured
+    if sync_token:
+        try:
+            pa_user = '14214'
+            pa_url = cfg.get('pa_account_url', '')
+            if 'user/' in pa_url:
+                pa_user = pa_url.split('user/')[1].split('/')[0].strip() or '14214'
+            
+            headers = {'Authorization': f'Token {sync_token}'}
+            file_paths = [pg_path, kunci_pg_path, essay_path, kunci_essay_path]
+            uploaded_count = 0
+            
+            for fp in file_paths:
+                if fp and os.path.exists(fp):
+                    fname = os.path.basename(fp)
+                    target_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/soal%20matematika/{norm_k}/{materi}/{fname}"
+                    with open(fp, 'rb') as f_in:
+                        r = requests.post(target_api, headers=headers, files={'content': f_in}, timeout=10)
+                        if r.status_code in (200, 201):
+                            uploaded_count += 1
+            
+            # Upload metadata.json
+            meta_data = {
+                'materi': materi,
+                'kelas': norm_k,
+                'jurusan': jurusan,
+                'uploaded_by': session.get('guru_nama', 'Guru'),
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            meta_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/soal%20matematika/{norm_k}/{materi}/metadata.json"
+            requests.post(meta_api, headers=headers, files={'content': json.dumps(meta_data, indent=2)}, timeout=10)
+            
+            if uploaded_count > 0:
+                # Trigger Reload on student server via PythonAnywhere REST API
+                try:
+                    reload_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/webapps/{pa_user}.pythonanywhere.com/reload/"
+                    requests.post(reload_api, headers=headers, timeout=10)
+                except Exception:
+                    pass
+                return True, f"Berhasil diunggah ke server PythonAnywhere 14214 ({uploaded_count} file) dan server siswa direload otomatis!"
+        except Exception as e:
+            print(f"[PA API Upload Error] {e}")
+
+    # 2. Fallback to /api/upload_soal HTTP POST
     if not remote_url:
         return False, "Remote URL belum dikonfigurasi."
 
