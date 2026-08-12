@@ -381,14 +381,54 @@ def fetch_remote_student_results():
     return results, sorted(classes)
 
 def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, essay_path=None, kunci_essay_path=None):
-    """Pushes uploaded DOCX files directly to the remote PythonAnywhere Student Exam app via PythonAnywhere REST API or HTTP POST."""
+    """Pushes uploaded DOCX files directly to the remote PythonAnywhere Student Exam app via HTTP POST and/or PA REST API."""
     if requests is None:
         return False, "Package 'requests' belum terinstall."
     cfg = load_sync_config()
     sync_token = cfg.get('sync_token', '').strip()
-    remote_url = cfg.get('remote_url', '').strip().rstrip('/')
-    
-    # 1. Try uploading via PythonAnywhere Official REST API if API token is configured
+    remote_url = cfg.get('remote_url', 'https://14214.pythonanywhere.com').strip().rstrip('/')
+    if not remote_url:
+        remote_url = 'https://14214.pythonanywhere.com'
+
+    upload_success = False
+    status_msg = ""
+
+    # 1. Try posting to student app /api/upload_soal (creates folders and saves files automatically)
+    target_endpoint = f"{remote_url}/api/upload_soal"
+    files = {}
+    try:
+        if pg_path and os.path.exists(pg_path):
+            files['file_pg'] = (os.path.basename(pg_path), open(pg_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        if kunci_pg_path and os.path.exists(kunci_pg_path):
+            files['file_kunci_pg'] = (os.path.basename(kunci_pg_path), open(kunci_pg_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        if essay_path and os.path.exists(essay_path):
+            files['file_essay'] = (os.path.basename(essay_path), open(essay_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        if kunci_essay_path and os.path.exists(kunci_essay_path):
+            files['file_kunci_essay'] = (os.path.basename(kunci_essay_path), open(kunci_essay_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
+        data = {
+            'kelas': norm_k,
+            'materi': materi,
+            'jurusan': jurusan,
+            'sync_token': sync_token
+        }
+
+        resp = requests.post(target_endpoint, data=data, files=files, timeout=10)
+        if resp.status_code == 200:
+            upload_success = True
+            status_msg = "Berhasil terkirim ke server Ujian Siswa via /api/upload_soal."
+        else:
+            status_msg = f"HTTP POST merespons status {resp.status_code}."
+    except Exception as e:
+        status_msg = f"HTTP POST error: {str(e)}"
+    finally:
+        for fkey, ftuple in files.items():
+            try:
+                ftuple[1].close()
+            except Exception:
+                pass
+
+    # 2. Try PythonAnywhere Official REST API as direct sync
     if sync_token:
         try:
             pa_user = '14214'
@@ -423,53 +463,22 @@ def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, 
             requests.post(meta_api, headers=headers, files={'content': json.dumps(meta_data, indent=2)}, timeout=10)
             
             if uploaded_count > 0:
-                # Trigger Reload on student server via PythonAnywhere REST API
-                try:
-                    reload_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/webapps/{pa_user}.pythonanywhere.com/reload/"
-                    requests.post(reload_api, headers=headers, timeout=10)
-                except Exception:
-                    pass
-                return True, f"Berhasil diunggah ke server PythonAnywhere 14214 ({uploaded_count} file) dan server siswa direload otomatis!"
+                upload_success = True
+                status_msg = f"Berhasil diunggah ke PythonAnywhere API 14214 ({uploaded_count} file)."
+
+            # Trigger Reload on student server via PythonAnywhere REST API so Flask immediately sees new files
+            try:
+                reload_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/webapps/{pa_user}.pythonanywhere.com/reload/"
+                requests.post(reload_api, headers=headers, timeout=10)
+                status_msg += " Server siswa direload otomatis!"
+            except Exception:
+                pass
         except Exception as e:
             print(f"[PA API Upload Error] {e}")
 
-    # 2. Fallback to /api/upload_soal HTTP POST
-    if not remote_url:
-        return False, "Remote URL belum dikonfigurasi."
-
-    target_endpoint = f"{remote_url}/api/upload_soal"
-    files = {}
-    
-    try:
-        if pg_path and os.path.exists(pg_path):
-            files['file_pg'] = (os.path.basename(pg_path), open(pg_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        if kunci_pg_path and os.path.exists(kunci_pg_path):
-            files['file_kunci_pg'] = (os.path.basename(kunci_pg_path), open(kunci_pg_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        if essay_path and os.path.exists(essay_path):
-            files['file_essay'] = (os.path.basename(essay_path), open(essay_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-        if kunci_essay_path and os.path.exists(kunci_essay_path):
-            files['file_kunci_essay'] = (os.path.basename(kunci_essay_path), open(kunci_essay_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-
-        data = {
-            'kelas': norm_k,
-            'materi': materi,
-            'jurusan': jurusan,
-            'sync_token': cfg.get('sync_token', '')
-        }
-
-        resp = requests.post(target_endpoint, data=data, files=files, timeout=10)
-        if resp.status_code == 200:
-            return True, "Berhasil terhubung dan tersinkronisasi ke server PythonAnywhere."
-        else:
-            return False, f"Server remote merespons status {resp.status_code}."
-    except Exception as e:
-        return False, f"Tidak dapat terhubung ke remote URL: {str(e)}"
-    finally:
-        for fkey, ftuple in files.items():
-            try:
-                ftuple[1].close()
-            except Exception:
-                pass
+    if upload_success:
+        return True, status_msg
+    return False, status_msg or "Gagal melakukan sinkronisasi ke server remote."
 
 @app.before_request
 def check_auth():
