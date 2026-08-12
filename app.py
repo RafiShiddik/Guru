@@ -53,8 +53,10 @@ def get_student_soal_base_dir():
     """Detects absolute path to 'soal matematika' in Ulangan Harian workspace."""
     candidates = [
         os.path.join(os.path.dirname(BASE_DIR), 'Ulangan Harian', 'soal matematika'),
+        os.path.join(os.path.dirname(BASE_DIR), 'soal matematika'),
         os.path.join(BASE_DIR, 'soal matematika'),
         r'C:\Users\Rafi\Downloads\Ulangan Harian\soal matematika',
+        r'C:\Users\Rafi\Downloads\soal matematika',
         '/var/task/soal matematika'
     ]
     for c in candidates:
@@ -71,8 +73,10 @@ def get_student_hasil_dir():
     """Detects path to 'hasil ujian' in Ulangan Harian workspace."""
     candidates = [
         os.path.join(os.path.dirname(BASE_DIR), 'Ulangan Harian', 'hasil ujian'),
+        os.path.join(os.path.dirname(BASE_DIR), 'hasil ujian'),
         os.path.join(BASE_DIR, 'hasil ujian'),
-        r'C:\Users\Rafi\Downloads\Ulangan Harian\hasil ujian'
+        r'C:\Users\Rafi\Downloads\Ulangan Harian\hasil ujian',
+        r'C:\Users\Rafi\Downloads\hasil ujian'
     ]
     for c in candidates:
         if os.path.exists(c) and os.path.isdir(c):
@@ -88,8 +92,10 @@ def get_student_key_dir():
     """Detects path to 'key' directory in Ulangan Harian workspace."""
     candidates = [
         os.path.join(os.path.dirname(BASE_DIR), 'Ulangan Harian', 'key'),
+        os.path.join(os.path.dirname(BASE_DIR), 'key'),
         os.path.join(BASE_DIR, 'key'),
-        r'C:\Users\Rafi\Downloads\Ulangan Harian\key'
+        r'C:\Users\Rafi\Downloads\Ulangan Harian\key',
+        r'C:\Users\Rafi\Downloads\key'
     ]
     for c in candidates:
         if os.path.exists(c) and os.path.isdir(c):
@@ -457,8 +463,19 @@ def delete_soal():
 @app.route('/hasil-ujian')
 def hasil_ujian():
     student_results = scan_student_results()
+    hasil_dir = get_student_hasil_dir()
     
     class_jurusan_map = {}
+    
+    # 1. Register existing class directories in hasil ujian folder
+    if os.path.exists(hasil_dir):
+        for item in os.listdir(hasil_dir):
+            item_path = os.path.join(hasil_dir, item)
+            if os.path.isdir(item_path):
+                norm_k = item if item.startswith('Kelas') else f"Kelas {item}"
+                class_jurusan_map[norm_k] = set()
+
+    # 2. Add classes and jurusans from scanned result files
     for r in student_results:
         k = r.get('kelas', 'Kelas Umum')
         j = r.get('jurusan', 'Semua Jurusan')
