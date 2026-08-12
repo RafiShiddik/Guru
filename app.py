@@ -3,6 +3,7 @@ import re
 import json
 import shutil
 import docx
+import requests
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 
@@ -165,7 +166,6 @@ def scan_student_results():
             file_size = os.path.getsize(file_path)
             mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
 
-            # Parse student name / info from file
             student_name = f.replace('.txt', '').replace('.json', '').replace('.csv', '').replace('_', ' ').title()
             
             results.append({
@@ -180,6 +180,47 @@ def scan_student_results():
     results.sort(key=lambda x: x['date'], reverse=True)
     return results
 
+def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, essay_path=None, kunci_essay_path=None):
+    """Pushes uploaded DOCX files directly to the remote PythonAnywhere Student Exam app via HTTP POST."""
+    cfg = load_sync_config()
+    remote_url = cfg.get('remote_url', '').strip().rstrip('/')
+    if not remote_url:
+        return False, "Remote URL belum dikonfigurasi."
+
+    target_endpoint = f"{remote_url}/api/upload_soal"
+    files = {}
+    
+    try:
+        if pg_path and os.path.exists(pg_path):
+            files['file_pg'] = (os.path.basename(pg_path), open(pg_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        if kunci_pg_path and os.path.exists(kunci_pg_path):
+            files['file_kunci_pg'] = (os.path.basename(kunci_pg_path), open(kunci_pg_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        if essay_path and os.path.exists(essay_path):
+            files['file_essay'] = (os.path.basename(essay_path), open(essay_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        if kunci_essay_path and os.path.exists(kunci_essay_path):
+            files['file_kunci_essay'] = (os.path.basename(kunci_essay_path), open(kunci_essay_path, 'rb'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
+        data = {
+            'kelas': norm_k,
+            'materi': materi,
+            'jurusan': jurusan,
+            'sync_token': cfg.get('sync_token', '')
+        }
+
+        resp = requests.post(target_endpoint, data=data, files=files, timeout=10)
+        if resp.status_code == 200:
+            return True, "Berhasil terhubung dan tersinkronisasi ke server PythonAnywhere."
+        else:
+            return False, f"Server remote merespons status {resp.status_code}."
+    except Exception as e:
+        return False, f"Tidak dapat terhubung ke remote URL: {str(e)}"
+    finally:
+        for fkey, ftuple in files.items():
+            try:
+                ftuple[1].close()
+            except Exception:
+                pass
+
 @app.before_request
 def check_auth():
     allowed_routes = ['login', 'static']
@@ -192,7 +233,6 @@ def login():
         nama = request.form.get('nama', '').strip()
         password = request.form.get('password', '').strip()
         
-        # Match teacher credentials
         matched_teacher = None
         for teacher_name in TEACHERS_CREDENTIALS:
             if teacher_name.lower().replace(' ', '') == nama.lower().replace(' ', ''):
@@ -263,16 +303,19 @@ def input_soal():
             file_pg.save(pg_path)
 
             # 2. Kunci PG (Optional)
+            kunci_pg_path = None
             if file_kunci_pg and file_kunci_pg.filename:
                 kunci_pg_path = os.path.join(target_dir, f"Kunci Jawaban {norm_k}.docx")
                 file_kunci_pg.save(kunci_pg_path)
 
             # 3. Soal Essay (Optional)
+            essay_path = None
             if file_essay and file_essay.filename:
                 essay_path = os.path.join(target_dir, f"Soal Essay {norm_k.lower()}.docx")
                 file_essay.save(essay_path)
 
             # 4. Kunci Essay (Optional)
+            kunci_essay_path = None
             if file_kunci_essay and file_kunci_essay.filename:
                 kunci_essay_path = os.path.join(target_dir, "Kunci Jawaban essay.docx")
                 file_kunci_essay.save(kunci_essay_path)
@@ -288,7 +331,10 @@ def input_soal():
             with open(os.path.join(target_dir, 'metadata.json'), 'w', encoding='utf-8') as mf:
                 json.dump(meta, mf, indent=2)
 
-            flash(f'Berhasil! Soal "{materi}" untuk {norm_k} ({jurusan}) telah tergenerasi dan siap diujikan di server siswa.', 'success')
+            # Trigger Remote HTTP Sync if configured
+            sync_ok, sync_msg = sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path, essay_path, kunci_essay_path)
+            
+            flash(f'Berhasil! Soal "{materi}" ({norm_k}) tersimpan secara lokal. Sync Status: {sync_msg}', 'success')
             return redirect(url_for('index'))
 
         except Exception as e:
@@ -342,7 +388,6 @@ def sync_settings():
         cfg['sync_token'] = request.form.get('sync_token', '').strip()
         save_sync_config(cfg)
 
-        # File key upload handling
         file_key = request.files.get('file_key')
         if file_key and file_key.filename.endswith('.json'):
             try:
