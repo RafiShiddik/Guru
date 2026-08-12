@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Login Guru - Portal Pengajar{% endblock %}
+
+{% block login_content %}
+<div class="login-container">
+  <div class="login-card">
+    <div style="text-align: center; margin-bottom: 2rem;">
+      <div style="width: 64px; height: 64px; background: var(--gradient-primary); border-radius: var(--radius-md); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 2.2rem; margin-bottom: 1rem; box-shadow: var(--shadow-glow);">
+        <i class="ph-bold ph-lock-key"></i>
+      </div>
+      <h1 style="font-size: 1.65rem; font-weight: 800; color: var(--text-primary);">PORTAL LOGIN GURU</h1>
+      <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.35rem;">Silakan pilih nama pengajar dan masukkan password Anda</p>
+    </div>
+
+    {% if error %}
+      <div class="glass-card" style="border-color: var(--accent-rose); background: rgba(244, 63, 94, 0.12); padding: 0.85rem 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+        <i class="ph ph-warning-circle" style="color: var(--accent-rose); font-size: 1.3rem;"></i>
+        <span style="font-size: 0.9rem; color: #fff;">{{ error }}</span>
+      </div>
+    {% endif %}
+
+    <form action="{{ url_for('login') }}" method="POST">
+      <div class="form-group">
+        <label class="form-label" for="namaGuru">Nama Guru Pengajar <span style="color: var(--accent-rose);">*</span></label>
+        <select name="nama" id="namaGuru" class="form-select" style="padding: 0.95rem 1.1rem; font-size: 1rem; font-weight: 600;" required>
+          <option value="" disabled selected>-- Pilih Nama Guru --</option>
+          <option value="Ir. Ely Rosidah">Ir. Ely Rosidah</option>
+          <option value="Achmad Rafi Shiddik">Achmad Rafi Shiddik</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-top: 1.25rem;">
+        <label class="form-label" for="password">Password Akun <span style="color: var(--accent-rose);">*</span></label>
+        <input type="password" name="password" id="password" class="form-control" placeholder="Masukkan password Anda" style="padding: 0.95rem 1.1rem;" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 0.95rem; font-size: 1rem;">
+        <i class="ph ph-sign-in" style="font-size: 1.25rem;"></i> Masuk Portal Guru
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

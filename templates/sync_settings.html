@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Sinkronisasi Remote & Key - Portal Guru{% endblock %}
+{% block header_title %}Sinkronisasi Cloud & Key Service Account{% endblock %}
+{% block header_subtitle %}Konfigurasi integrasi PythonAnywhere (User 14214) dan Key Google Sheets{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 850px; margin: 0 auto;">
+  <div style="border-bottom: 1px solid var(--border-glass); padding-bottom: 1.25rem; margin-bottom: 1.75rem;">
+    <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.6rem;">
+      <i class="ph ph-cloud-arrow-up"></i> Integrasi Account PythonAnywhere (User 14214)
+    </h2>
+    <p style="font-size: 0.88rem; color: var(--text-secondary);">
+      Server ujian siswa di-host pada akun PythonAnywhere: <a href="{{ pa_account_url }}" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">https://www.pythonanywhere.com/user/14214/</a>.
+    </p>
+  </div>
+
+  <form action="{{ url_for('sync_settings') }}" method="POST" enctype="multipart/form-data">
+    <div class="form-group">
+      <label class="form-label" for="remote_url">URL Server Ujian Siswa (PythonAnywhere):</label>
+      <input type="url" name="remote_url" id="remote_url" class="form-control" placeholder="https://14214.pythonanywhere.com" value="{{ current_remote_url }}">
+      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">URL domain publik aplikasi ujian siswa yang berjalan di PythonAnywhere.</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="pa_account_url">Link Dashboard User PythonAnywhere:</label>
+      <input type="url" name="pa_account_url" id="pa_account_url" class="form-control" placeholder="https://www.pythonanywhere.com/user/14214/" value="{{ pa_account_url }}">
+    </div>
+
+    <!-- Google Key File Section -->
+    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-glass);">
+      <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--accent-emerald); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+        <i class="ph ph-key"></i> Key Service Account Google Sheets (`Ulangan Harian\key`)
+      </h3>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Kredensial Google Service Account yang digunakan untuk sinkronisasi nilai ke Google Sheets.
+      </p>
+
+      {% if key_files %}
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.85rem 1.1rem; border-radius: var(--radius-md); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem;">
+          <i class="ph ph-check-circle" style="color: var(--accent-emerald); font-size: 1.4rem;"></i>
+          <div>
+            <div style="font-weight: 700; color: #fff; font-size: 0.9rem;">File Key Terpasang:</div>
+            <div style="font-size: 0.8rem; color: var(--accent-emerald);">{{ key_files|join(', ') }}</div>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label class="form-label" for="file_key">Upload / Perbarui File Key JSON Baru (.json):</label>
+        <input type="file" name="file_key" id="file_key" class="form-control" accept=".json">
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+      <button type="submit" class="btn btn-primary">
+        <i class="ph ph-floppy-disk"></i> Simpan Pengaturan
+      </button>
+      <a href="{{ pa_account_url }}" target="_blank" class="btn btn-secondary">
+        <i class="ph ph-arrow-square-out"></i> Buka PythonAnywhere User 14214
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

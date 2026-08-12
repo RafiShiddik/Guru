@@ -1,0 +1,389 @@
+import os
+import re
+import json
+import shutil
+import docx
+from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
+app.secret_key = 'guru_portal_bm2_secure_key_2026'
+
+# Teacher accounts and passwords
+TEACHERS_CREDENTIALS = {
+    'Ir. Ely Rosidah': 'Bu Ely Cantik',
+    'Achmad Rafi Shiddik': 'Achmad 123'
+}
+
+CONFIG_FILE = os.path.join(BASE_DIR, 'sync_config.json')
+
+def load_sync_config():
+    default_cfg = {
+        'remote_url': 'https://14214.pythonanywhere.com',
+        'pa_account_url': 'https://www.pythonanywhere.com/user/14214/',
+        'sync_token': ''
+    }
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                default_cfg.update(data)
+        except Exception:
+            pass
+    return default_cfg
+
+def save_sync_config(cfg):
+    try:
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(cfg, f, indent=2)
+    except Exception:
+        pass
+
+def get_student_soal_base_dir():
+    """Detects absolute path to 'soal matematika' in Ulangan Harian workspace."""
+    candidates = [
+        os.path.join(os.path.dirname(BASE_DIR), 'Ulangan Harian', 'soal matematika'),
+        r'C:\Users\Rafi\Downloads\Ulangan Harian\soal matematika',
+        os.path.join(BASE_DIR, 'soal matematika'),
+        '/var/task/soal matematika'
+    ]
+    for c in candidates:
+        if os.path.exists(c) and os.path.isdir(c):
+            return c
+    default_path = r'C:\Users\Rafi\Downloads\Ulangan Harian\soal matematika'
+    try:
+        os.makedirs(default_path, exist_ok=True)
+    except Exception:
+        pass
+    return default_path
+
+def get_student_hasil_dir():
+    """Detects path to 'hasil ujian' in Ulangan Harian workspace."""
+    candidates = [
+        os.path.join(os.path.dirname(BASE_DIR), 'Ulangan Harian', 'hasil ujian'),
+        r'C:\Users\Rafi\Downloads\Ulangan Harian\hasil ujian',
+        os.path.join(BASE_DIR, 'hasil ujian')
+    ]
+    for c in candidates:
+        if os.path.exists(c) and os.path.isdir(c):
+            return c
+    default_path = r'C:\Users\Rafi\Downloads\Ulangan Harian\hasil ujian'
+    try:
+        os.makedirs(default_path, exist_ok=True)
+    except Exception:
+        pass
+    return default_path
+
+def get_student_key_dir():
+    """Detects path to 'key' directory in Ulangan Harian workspace."""
+    candidates = [
+        os.path.join(os.path.dirname(BASE_DIR), 'Ulangan Harian', 'key'),
+        r'C:\Users\Rafi\Downloads\Ulangan Harian\key',
+        os.path.join(BASE_DIR, 'key')
+    ]
+    for c in candidates:
+        if os.path.exists(c) and os.path.isdir(c):
+            return c
+    default_path = r'C:\Users\Rafi\Downloads\Ulangan Harian\key'
+    try:
+        os.makedirs(default_path, exist_ok=True)
+    except Exception:
+        pass
+    return default_path
+
+def scan_all_materials():
+    """Scans student exam soal directory and returns list of material dicts."""
+    base_dir = get_student_soal_base_dir()
+    results = []
+    if not os.path.exists(base_dir):
+        return results
+
+    for class_folder in sorted(os.listdir(base_dir)):
+        class_path = os.path.join(base_dir, class_folder)
+        if os.path.isdir(class_path):
+            norm_class = class_folder.replace('Kelas ', '').replace('kelas ', '').strip()
+            
+            subfolders = [f for f in os.listdir(class_path) if os.path.isdir(os.path.join(class_path, f))]
+            if subfolders:
+                for mat_name in sorted(subfolders):
+                    mat_path = os.path.join(class_path, mat_name)
+                    files = os.listdir(mat_path)
+                    
+                    meta = {}
+                    meta_path = os.path.join(mat_path, 'metadata.json')
+                    if os.path.exists(meta_path):
+                        try:
+                            with open(meta_path, 'r', encoding='utf-8') as mf:
+                                meta = json.load(mf)
+                        except Exception:
+                            pass
+
+                    results.append({
+                        'kelas_raw': class_folder,
+                        'kelas': norm_class,
+                        'materi': mat_name,
+                        'jurusan': meta.get('jurusan', 'Semua Jurusan'),
+                        'uploaded_by': meta.get('uploaded_by', 'Guru'),
+                        'timestamp': meta.get('timestamp', ''),
+                        'has_pg': any(f.endswith('.docx') and 'kunci' not in f.lower() and 'essay' not in f.lower() for f in files),
+                        'has_key': any(f.endswith('.docx') and 'kunci' in f.lower() and 'essay' not in f.lower() for f in files),
+                        'has_essay': any(f.endswith('.docx') and 'essay' in f.lower() for f in files),
+                        'files': files
+                    })
+            else:
+                files = os.listdir(class_path)
+                docx_files = [f for f in files if f.endswith('.docx')]
+                if docx_files:
+                    results.append({
+                        'kelas_raw': class_folder,
+                        'kelas': norm_class,
+                        'materi': 'Matematika Umum',
+                        'jurusan': 'Semua Jurusan',
+                        'uploaded_by': 'Guru',
+                        'timestamp': '',
+                        'has_pg': True,
+                        'has_key': False,
+                        'has_essay': False,
+                        'files': docx_files
+                    })
+                    
+    return results
+
+def scan_student_results():
+    """Scans student exam results in 'hasil ujian' directory."""
+    hasil_dir = get_student_hasil_dir()
+    results = []
+    if not os.path.exists(hasil_dir):
+        return results
+
+    for root, dirs, files in os.walk(hasil_dir):
+        for f in files:
+            file_path = os.path.join(root, f)
+            rel_path = os.path.relpath(file_path, hasil_dir)
+            file_size = os.path.getsize(file_path)
+            mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+
+            # Parse student name / info from file
+            student_name = f.replace('.txt', '').replace('.json', '').replace('.csv', '').replace('_', ' ').title()
+            
+            results.append({
+                'filename': f,
+                'rel_path': rel_path,
+                'student_name': student_name,
+                'size_bytes': file_size,
+                'date': mod_time,
+                'full_path': file_path
+            })
+
+    results.sort(key=lambda x: x['date'], reverse=True)
+    return results
+
+@app.before_request
+def check_auth():
+    allowed_routes = ['login', 'static']
+    if request.endpoint not in allowed_routes and not session.get('guru_nama'):
+        return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        nama = request.form.get('nama', '').strip()
+        password = request.form.get('password', '').strip()
+        
+        # Match teacher credentials
+        matched_teacher = None
+        for teacher_name in TEACHERS_CREDENTIALS:
+            if teacher_name.lower().replace(' ', '') == nama.lower().replace(' ', ''):
+                matched_teacher = teacher_name
+                break
+
+        if not matched_teacher:
+            return render_template('login.html', error='Nama guru tidak terdaftar!')
+
+        expected_pwd = TEACHERS_CREDENTIALS[matched_teacher]
+        if password != expected_pwd:
+            return render_template('login.html', error='Password yang Anda masukkan salah!')
+
+        session['guru_nama'] = matched_teacher
+        flash(f'Selamat datang, {matched_teacher}!', 'success')
+        return redirect(url_for('index'))
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Anda telah keluar dari Portal Guru.', 'info')
+    return redirect(url_for('login'))
+
+@app.route('/')
+def index():
+    materi_list = scan_all_materials()
+    total_materi = len(materi_list)
+    classes_set = {m['kelas'] for m in materi_list}
+    total_kelas = len(classes_set)
+    student_results = scan_student_results()
+    return render_template('dashboard.html', 
+                           materi_list=materi_list, 
+                           total_materi=total_materi, 
+                           total_kelas=total_kelas,
+                           total_hasil_siswa=len(student_results))
+
+@app.route('/input-soal', methods=['GET', 'POST'])
+def input_soal():
+    if request.method == 'POST':
+        materi = request.form.get('materi', '').strip()
+        kelas = request.form.get('kelas', '').strip()
+        jurusan = request.form.get('jurusan', 'Semua Jurusan').strip()
+
+        file_pg = request.files.get('file_pg')
+        file_kunci_pg = request.files.get('file_kunci_pg')
+        file_essay = request.files.get('file_essay')
+        file_kunci_essay = request.files.get('file_kunci_essay')
+
+        if not materi or not kelas or not file_pg or not file_pg.filename:
+            flash('Materi, Kelas, dan File Soal Pilihan Ganda wajib diisi!', 'danger')
+            return redirect(url_for('input_soal'))
+
+        base_soal_dir = get_student_soal_base_dir()
+        norm_k = kelas if kelas.startswith('Kelas') else f"Kelas {kelas}"
+        target_dir = os.path.join(base_soal_dir, norm_k, materi)
+        
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+        except Exception as e:
+            flash(f'Gagal membuat direktori soal: {str(e)}', 'danger')
+            return redirect(url_for('input_soal'))
+
+        try:
+            # 1. Soal PG
+            pg_path = os.path.join(target_dir, f"Soal Ulangan Pilihan Ganda {norm_k}.docx")
+            file_pg.save(pg_path)
+
+            # 2. Kunci PG (Optional)
+            if file_kunci_pg and file_kunci_pg.filename:
+                kunci_pg_path = os.path.join(target_dir, f"Kunci Jawaban {norm_k}.docx")
+                file_kunci_pg.save(kunci_pg_path)
+
+            # 3. Soal Essay (Optional)
+            if file_essay and file_essay.filename:
+                essay_path = os.path.join(target_dir, f"Soal Essay {norm_k.lower()}.docx")
+                file_essay.save(essay_path)
+
+            # 4. Kunci Essay (Optional)
+            if file_kunci_essay and file_kunci_essay.filename:
+                kunci_essay_path = os.path.join(target_dir, "Kunci Jawaban essay.docx")
+                file_kunci_essay.save(kunci_essay_path)
+
+            # 5. Metadata JSON
+            meta = {
+                'materi': materi,
+                'kelas': norm_k,
+                'jurusan': jurusan,
+                'uploaded_by': session.get('guru_nama', 'Guru'),
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            with open(os.path.join(target_dir, 'metadata.json'), 'w', encoding='utf-8') as mf:
+                json.dump(meta, mf, indent=2)
+
+            flash(f'Berhasil! Soal "{materi}" untuk {norm_k} ({jurusan}) telah tergenerasi dan siap diujikan di server siswa.', 'success')
+            return redirect(url_for('index'))
+
+        except Exception as e:
+            flash(f'Terjadi kesalahan saat menyimpan file: {str(e)}', 'danger')
+            return redirect(url_for('input_soal'))
+
+    return render_template('input_soal.html')
+
+@app.route('/kelola-soal')
+def kelola_soal():
+    materi_list = scan_all_materials()
+    return render_template('kelola_soal.html', materi_list=materi_list)
+
+@app.route('/delete-soal', methods=['POST'])
+def delete_soal():
+    kelas_raw = request.form.get('kelas', '').strip()
+    materi = request.form.get('materi', '').strip()
+
+    if not kelas_raw or not materi:
+        flash('Data tidak valid.', 'danger')
+        return redirect(url_for('kelola_soal'))
+
+    base_dir = get_student_soal_base_dir()
+    target_dir = os.path.join(base_dir, kelas_raw, materi)
+
+    if os.path.exists(target_dir) and os.path.isdir(target_dir):
+        try:
+            shutil.rmtree(target_dir)
+            flash(f'Materi "{materi}" dari {kelas_raw} berhasil dihapus.', 'success')
+        except Exception as e:
+            flash(f'Gagal menghapus folder: {str(e)}', 'danger')
+    else:
+        flash('Folder materi tidak ditemukan.', 'danger')
+
+    return redirect(url_for('kelola_soal'))
+
+@app.route('/hasil-ujian')
+def hasil_ujian():
+    student_results = scan_student_results()
+    return render_template('hasil_ujian.html', results=student_results)
+
+@app.route('/sync-settings', methods=['GET', 'POST'])
+def sync_settings():
+    cfg = load_sync_config()
+    key_dir = get_student_key_dir()
+    key_files = os.listdir(key_dir) if os.path.exists(key_dir) else []
+
+    if request.method == 'POST':
+        cfg['remote_url'] = request.form.get('remote_url', '').strip()
+        cfg['pa_account_url'] = request.form.get('pa_account_url', '').strip()
+        cfg['sync_token'] = request.form.get('sync_token', '').strip()
+        save_sync_config(cfg)
+
+        # File key upload handling
+        file_key = request.files.get('file_key')
+        if file_key and file_key.filename.endswith('.json'):
+            try:
+                target_key_path = os.path.join(key_dir, file_key.filename)
+                file_key.save(target_key_path)
+                flash('File Google Service Account Key berhasil diperbarui!', 'success')
+            except Exception as e:
+                flash(f'Gagal menyimpan file key: {str(e)}', 'danger')
+
+        flash('Pengaturan sinkronisasi remote berhasil disimpan!', 'success')
+        return redirect(url_for('sync_settings'))
+
+    return render_template('sync_settings.html', 
+                           current_remote_url=cfg.get('remote_url', 'https://14214.pythonanywhere.com'),
+                           pa_account_url=cfg.get('pa_account_url', 'https://www.pythonanywhere.com/user/14214/'),
+                           current_sync_token=cfg.get('sync_token', ''),
+                           key_files=key_files)
+
+@app.route('/api/preview-docx', methods=['POST'])
+def api_preview_docx():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    file = request.files['file']
+    if not file or not file.filename.endswith('.docx'):
+        return jsonify({'error': 'File must be a .docx document'}), 400
+
+    try:
+        doc = docx.Document(file)
+        paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+        return jsonify({
+            'total_paragraphs': len(paragraphs),
+            'sample_paragraphs': paragraphs[:10]
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to parse docx: {str(e)}'}), 500
+
+if __name__ == '__main__':
+    print("=" * 60)
+    print("  SERVER GURU (TEACHER PORTAL) RUNNING ON PORT 5050")
+    print("  Student Exam Target Directory:", get_student_soal_base_dir())
+    print("  Student Exam Results Directory:", get_student_hasil_dir())
+    print("  Google Service Key Directory:", get_student_key_dir())
+    print("=" * 60)
+    app.run(host='0.0.0.0', port=5050, debug=True)

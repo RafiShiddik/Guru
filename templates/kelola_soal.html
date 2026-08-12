@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Kelola Bank Soal - Portal Guru{% endblock %}
+{% block header_title %}Bank & Kelola Soal Ujian{% endblock %}
+{% block header_subtitle %}Manajemen paket soal yang aktif di server ujian siswa{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+      <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--text-primary);">Daftar Paket Soal Terdaftar</h2>
+      <p style="color: var(--text-secondary); font-size: 0.88rem;">Berikut adalah seluruh materi ujian yang saat ini dapat diakses oleh siswa di server ujian.</p>
+    </div>
+    <a href="{{ url_for('input_soal') }}" class="btn btn-primary">
+      <i class="ph ph-plus"></i> Tambah Soal DOCX Baru
+    </a>
+  </div>
+
+  {% if materi_list %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Kelas</th>
+            <th>Materi Pembahasan</th>
+            <th>Jurusan</th>
+            <th>Dokumen Berkas</th>
+            <th style="text-align: right;">Aksi Hapus / Kelola</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in materi_list %}
+          <tr>
+            <td>
+              <span class="badge-tag badge-cyan">Kelas {{ item.kelas }}</span>
+            </td>
+            <td>
+              <strong style="color: var(--text-primary); font-size: 1rem;">{{ item.materi }}</strong>
+            </td>
+            <td>
+              <span class="badge-tag badge-indigo">{{ item.jurusan or 'Semua Jurusan' }}</span>
+            </td>
+            <td>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                {% for doc in item.files %}
+                  <span class="badge-tag badge-emerald" style="font-size: 0.75rem;">
+                    <i class="ph ph-file-text"></i> {{ doc }}
+                  </span>
+                {% endfor %}
+              </div>
+            </td>
+            <td style="text-align: right;">
+              <form action="{{ url_for('delete_soal') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus materi {{ item.materi }} dari server ujian siswa?');" style="display: inline-block;">
+                <input type="hidden" name="kelas" value="{{ item.kelas_raw }}">
+                <input type="hidden" name="materi" value="{{ item.materi }}">
+                <button type="submit" class="btn btn-danger" style="padding: 0.4rem 0.85rem; font-size: 0.82rem;">
+                  <i class="ph ph-trash"></i> Hapus Paket Soal
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+      <i class="ph ph-folder-open" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 0.75rem;"></i>
+      <p style="font-size: 1rem;">Belum ada materi ujian di bank soal.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

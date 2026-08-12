@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Portal Guru{% endblock %}
+{% block header_title %}Halaman Utama{% endblock %}
+{% block header_subtitle %}Selamat Datang di Panel Manajemen Soal Ujian Pengajar{% endblock %}
+
+{% block content %}
+<!-- Welcome Banner Card -->
+<div class="glass-card welcome-banner">
+  <div class="welcome-content">
+    <span class="welcome-badge"><i class="ph ph-sparkle"></i> Mode Pengajar Aktif</span>
+    <h2 class="welcome-title">Selamat Datang, {{ session.get('guru_nama') }}!</h2>
+    <p class="welcome-subtitle">
+      Anda dapat menginputkan file soal `.docx` terbaru, menentukan materi yang dibahas, kelas, dan jurusan. Soal akan otomatis tergenerasi ke sistem ujian siswa (`Ulangan Harian`).
+    </p>
+    <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+      <a href="{{ url_for('input_soal') }}" class="btn btn-primary">
+        <i class="ph ph-file-plus" style="font-size: 1.2rem;"></i> Input Soal DOCX Baru
+      </a>
+      <a href="{{ url_for('kelola_soal') }}" class="btn btn-secondary">
+        <i class="ph ph-folders" style="font-size: 1.2rem;"></i> Lihat Bank Soal
+      </a>
+    </div>
+  </div>
+  <div class="welcome-illustration">
+    <i class="ph-bold ph-graduation-cap"></i>
+  </div>
+</div>
+
+<!-- Metrics Stats Grid -->
+<div class="stats-grid">
+  <div class="glass-card stat-card">
+    <div class="stat-icon indigo">
+      <i class="ph ph-books"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ total_materi }}</div>
+      <div class="stat-label">Total Paket Soal Aktif</div>
+    </div>
+  </div>
+
+  <div class="glass-card stat-card">
+    <div class="stat-icon cyan">
+      <i class="ph ph-chalkboard"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ total_kelas }}</div>
+      <div class="stat-label">Tingkat Kelas Terdaftar</div>
+    </div>
+  </div>
+
+  <div class="glass-card stat-card">
+    <div class="stat-icon emerald">
+      <i class="ph ph-cloud-check"></i>
+    </div>
+    <div>
+      <div class="stat-value">Terhubung</div>
+      <div class="stat-label">Status Server Ujian Siswa</div>
+    </div>
+  </div>
+</div>
+
+<!-- Active Exam Materials Section -->
+<div class="glass-card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+      <h3 style="font-size: 1.25rem; font-weight: 700;">Paket Soal Ujian Tersedia</h3>
+      <p style="color: var(--text-secondary); font-size: 0.88rem;">Daftar materi soal yang saat ini aktif dan dapat dikerjakan siswa</p>
+    </div>
+    <a href="{{ url_for('input_soal') }}" class="btn btn-emerald" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+      <i class="ph ph-plus"></i> Tambah Soal
+    </a>
+  </div>
+
+  {% if materi_list %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Kelas</th>
+            <th>Nama Materi / Pokok Bahasan</th>
+            <th>Jurusan Target</th>
+            <th>Dokumen DOCX Soal</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in materi_list %}
+          <tr>
+            <td>
+              <span class="badge-tag badge-cyan">Kelas {{ item.kelas }}</span>
+            </td>
+            <td>
+              <strong style="color: var(--text-primary);">{{ item.materi }}</strong>
+            </td>
+            <td>
+              <span class="badge-tag badge-indigo">{{ item.jurusan or 'Semua Jurusan' }}</span>
+            </td>
+            <td>
+              <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                {% if item.has_pg %}<i class="ph ph-check-circle" style="color: var(--accent-emerald);"></i> Soal PG &nbsp;{% endif %}
+                {% if item.has_key %}<i class="ph ph-check-circle" style="color: var(--accent-cyan);"></i> Kunci PG &nbsp;{% endif %}
+                {% if item.has_essay %}<i class="ph ph-check-circle" style="color: var(--accent-indigo);"></i> Essay{% endif %}
+              </div>
+            </td>
+            <td>
+              <a href="{{ url_for('kelola_soal') }}" class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.8rem;">
+                <i class="ph ph-gear"></i> Kelola
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+      <i class="ph ph-folder-open" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 0.75rem;"></i>
+      <p style="font-size: 1rem;">Belum ada paket soal yang diupload.</p>
+      <a href="{{ url_for('input_soal') }}" class="btn btn-primary" style="margin-top: 1rem;">
+        <i class="ph ph-upload-simple"></i> Upload Soal Pertama
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

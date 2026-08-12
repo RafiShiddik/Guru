@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Hasil Ujian Siswa - Portal Guru{% endblock %}
+{% block header_title %}Hasil Ujian Siswa{% endblock %}
+{% block header_subtitle %}Monitoring dan rekapitulasi nilai hasil ujian siswa dari server ujian{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+      <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--text-primary);">Rekapitulasi Hasil Ujian Siswa</h2>
+      <p style="color: var(--text-secondary); font-size: 0.88rem;">Data lembar jawaban & nilai siswa yang tersimpan di server ujian (`Ulangan Harian`)</p>
+    </div>
+    <span class="badge-tag badge-emerald" style="font-size: 0.9rem; padding: 0.5rem 1rem;">
+      <i class="ph ph-check-circle"></i> {{ results|length }} Berkas Hasil
+    </span>
+  </div>
+
+  {% if results %}
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama Siswa / File Hasil</th>
+            <th>Jalur File Relatif</th>
+            <th>Ukuran File</th>
+            <th>Tanggal Penyerahan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>
+              <strong style="color: var(--text-primary); font-size: 0.95rem;">
+                <i class="ph ph-file-text" style="color: var(--accent-cyan); margin-right: 0.35rem;"></i> {{ r.student_name }}
+              </strong>
+            </td>
+            <td>
+              <span class="badge-tag badge-indigo" style="font-size: 0.8rem;">{{ r.rel_path }}</span>
+            </td>
+            <td>
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ (r.size_bytes / 1024)|round(1) }} KB</span>
+            </td>
+            <td>
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ r.date }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+      <i class="ph ph-chart-line" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 0.75rem;"></i>
+      <p style="font-size: 1rem;">Belum ada berkas hasil ujian siswa yang tersimpan.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

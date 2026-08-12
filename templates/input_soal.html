@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Input Soal DOCX - Portal Guru{% endblock %}
+{% block header_title %}Input Soal Ujian DOCX{% endblock %}
+{% block header_subtitle %}Upload file .docx dan lengkapi materi serta kelas untuk otomatisasi soal ujian siswa{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 900px; margin: 0 auto;">
+  <form action="{{ url_for('input_soal') }}" method="POST" enctype="multipart/form-data">
+    <div style="display: border-bottom; border-bottom: 1px solid var(--border-glass); padding-bottom: 1.25rem; margin-bottom: 1.75rem;">
+      <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.6rem;">
+        <i class="ph ph-file-text"></i> Form Data Ujian & Metadata Soal
+      </h2>
+      <p style="font-size: 0.88rem; color: var(--text-secondary);">Isi informasi materi dan sasaran kelas sebelum mengunggah file soal.</p>
+    </div>
+
+    <!-- Metadata Section -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+      <div class="form-group">
+        <label class="form-label" for="materi">Materi yang Dibahas <span style="color: var(--accent-rose);">*</span></label>
+        <input type="text" name="materi" id="materi" class="form-control" placeholder="Contoh: Fungsi Komposisi dan Fungsi Invers" required>
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Pokok pembahasan / bab mata pelajaran.</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="kelas">Tingkat Kelas <span style="color: var(--accent-rose);">*</span></label>
+        <select name="kelas" id="kelas" class="form-select" required>
+          <option value="Kelas X">Kelas X</option>
+          <option value="Kelas XI" selected>Kelas XI</option>
+          <option value="Kelas XII">Kelas XII</option>
+        </select>
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Pilih jenjang kelas ujian siswa.</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="jurusan">Jurusan Target <span style="color: var(--accent-rose);">*</span></label>
+        <select name="jurusan" id="jurusan" class="form-select" required>
+          <option value="Semua Jurusan" selected>Semua Jurusan</option>
+          <option value="AKL">AKL (Akuntansi dan Keuangan Lembaga)</option>
+          <option value="MPLB">MPLB (Manajemen Perkantoran)</option>
+          <option value="TKJ">TKJ (Teknik Komputer dan Jaringan)</option>
+          <option value="BD">BD (Bisnis Digital)</option>
+        </select>
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Target siswa jurusan terkait.</div>
+      </div>
+    </div>
+
+    <!-- DOCX Upload Dropzones Section -->
+    <div style="margin-bottom: 2rem;">
+      <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <i class="ph ph-upload"></i> Unggah File Microsoft Word (.docx)
+      </h3>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1.5rem;">
+        <!-- Dropzone 1: Soal Pilihan Ganda -->
+        <div>
+          <label class="form-label">Soal Pilihan Ganda (.docx) <span style="color: var(--accent-rose);">*</span></label>
+          <div class="upload-zone">
+            <input type="file" name="file_pg" class="file-input-hidden" accept=".docx" required>
+            <div class="upload-icon"><i class="ph ph-file-doc"></i></div>
+            <div class="upload-title">Klik atau Drag File Soal PG disini</div>
+            <div class="upload-hint">Format file .docx dengan pilihan A, B, C, D, E</div>
+            <div class="file-selected-info" style="display: none;">
+              <i class="ph ph-check"></i> <span class="filename-text"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dropzone 2: Kunci Jawaban PG -->
+        <div>
+          <label class="form-label">Kunci Jawaban PG (.docx) <span style="color: var(--text-muted);">(Opsional)</span></label>
+          <div class="upload-zone">
+            <input type="file" name="file_kunci_pg" class="file-input-hidden" accept=".docx">
+            <div class="upload-icon" style="color: var(--accent-emerald);"><i class="ph ph-key"></i></div>
+            <div class="upload-title">Klik atau Drag File Kunci Jawaban disini</div>
+            <div class="upload-hint">Format file .docx kunci pilihan ganda</div>
+            <div class="file-selected-info" style="display: none;">
+              <i class="ph ph-check"></i> <span class="filename-text"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dropzone 3: Soal Essay -->
+        <div>
+          <label class="form-label">Soal Essay (.docx) <span style="color: var(--text-muted);">(Opsional)</span></label>
+          <div class="upload-zone">
+            <input type="file" name="file_essay" class="file-input-hidden" accept=".docx">
+            <div class="upload-icon" style="color: var(--accent-indigo);"><i class="ph ph-article"></i></div>
+            <div class="upload-title">Klik atau Drag File Soal Essay disini</div>
+            <div class="upload-hint">Format file .docx soal uraian/essay</div>
+            <div class="file-selected-info" style="display: none;">
+              <i class="ph ph-check"></i> <span class="filename-text"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dropzone 4: Kunci Jawaban Essay -->
+        <div>
+          <label class="form-label">Kunci Jawaban Essay (.docx) <span style="color: var(--text-muted);">(Opsional)</span></label>
+          <div class="upload-zone">
+            <input type="file" name="file_kunci_essay" class="file-input-hidden" accept=".docx">
+            <div class="upload-icon" style="color: var(--accent-amber);"><i class="ph ph-file-text"></i></div>
+            <div class="upload-title">Klik atau Drag Kunci Essay disini</div>
+            <div class="upload-hint">Format file .docx kunci uraian/essay</div>
+            <div class="file-selected-info" style="display: none;">
+              <i class="ph ph-check"></i> <span class="filename-text"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Section -->
+    <div style="border-top: 1px solid var(--border-glass); padding-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem;">
+      <a href="{{ url_for('index') }}" class="btn btn-secondary">Batal</a>
+      <button type="submit" class="btn btn-emerald" style="padding: 0.9rem 2rem;">
+        <i class="ph ph-paper-plane-tilt" style="font-size: 1.2rem;"></i> Generate & Simpan Ke Server Ujian
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

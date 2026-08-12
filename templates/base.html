@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Portal Guru - Management Soal Ujian{% endblock %}</title>
+  <meta name="description" content="Portal Guru SMK Budi Murni 2 - Management dan Input Soal Ujian">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Phosphor Icons CDN -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+  <!-- Background Glowing Effects -->
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+
+  {% if session.get('guru_nama') %}
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div>
+        <div class="brand-header">
+          <div class="brand-logo">
+            <i class="ph-bold ph-chalkboard-teacher"></i>
+          </div>
+          <div class="brand-title">
+            <h2>PORTAL GURU</h2>
+            <span>SMK Budi Murni 2</span>
+          </div>
+        </div>
+
+        <ul class="nav-list">
+          <li>
+            <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+              <i class="ph ph-squares-four"></i>
+              <span class="nav-text">Halaman Utama</span>
+            </a>
+          </li>
+          <li>
+            <a href="{{ url_for('input_soal') }}" class="nav-link {% if request.endpoint == 'input_soal' %}active{% endif %}">
+              <i class="ph ph-file-plus"></i>
+              <span class="nav-text">Input Soal DOCX</span>
+            </a>
+          </li>
+          <li>
+            <a href="{{ url_for('kelola_soal') }}" class="nav-link {% if request.endpoint == 'kelola_soal' %}active{% endif %}">
+              <i class="ph ph-folders"></i>
+              <span class="nav-text">Bank / Kelola Soal</span>
+            </a>
+          </li>
+          <li>
+            <a href="{{ url_for('hasil_ujian') }}" class="nav-link {% if request.endpoint == 'hasil_ujian' %}active{% endif %}">
+              <i class="ph ph-chart-line-up"></i>
+              <span class="nav-text">Hasil Ujian Siswa</span>
+            </a>
+          </li>
+          <li>
+            <a href="{{ url_for('sync_settings') }}" class="nav-link {% if request.endpoint == 'sync_settings' %}active{% endif %}">
+              <i class="ph ph-arrows-clockwise"></i>
+              <span class="nav-text">Sinkronkan Cloud & Key</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- User Profile & Logout -->
+      <div class="user-profile-card">
+        <div class="user-avatar">
+          {{ session.get('guru_nama')[0] }}
+        </div>
+        <div class="user-info">
+          <div class="user-name">{{ session.get('guru_nama') }}</div>
+          <div class="user-role">Guru Pengajar</div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="btn-logout" title="Keluar">
+          <i class="ph ph-sign-out"></i>
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <main class="main-wrapper">
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="page-title">
+          <h1>{% block header_title %}Halaman Utama{% endblock %}</h1>
+          <p>{% block header_subtitle %}Manajemen dan Input Soal Ujian Siswa{% endblock %}</p>
+        </div>
+        <div class="status-badge">
+          <span class="status-dot"></span>
+          <span>Server Guru Active (Port 5050)</span>
+        </div>
+      </header>
+
+      <!-- Alert Flashes -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div style="margin-bottom: 1.5rem;">
+            {% for category, message in messages %}
+              <div class="glass-card" style="border-color: {% if category == 'danger' %}var(--accent-rose){% elif category == 'success' %}var(--accent-emerald){% else %}var(--accent-cyan){% endif %}; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                <i class="ph {% if category == 'danger' %}ph-warning-circle{% elif category == 'success' %}ph-check-circle{% else %}ph-info{% endif %}" style="font-size: 1.3rem; color: {% if category == 'danger' %}var(--accent-rose){% elif category == 'success' %}var(--accent-emerald){% else %}var(--accent-cyan){% endif %};"></i>
+                <span style="font-size: 0.95rem;">{{ message }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  {% else %}
+    {% block login_content %}{% endblock %}
+  {% endif %}
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
