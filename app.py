@@ -2,10 +2,17 @@ import os
 import re
 import json
 import shutil
-import docx
-import requests
+try:
+    import docx
+except ImportError:
+    docx = None
+
+try:
+    import requests
+except ImportError:
+    requests = None
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, send_file
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -46,14 +53,14 @@ def get_student_soal_base_dir():
     """Detects absolute path to 'soal matematika' in Ulangan Harian workspace."""
     candidates = [
         os.path.join(os.path.dirname(BASE_DIR), 'Ulangan Harian', 'soal matematika'),
-        r'C:\Users\Rafi\Downloads\Ulangan Harian\soal matematika',
         os.path.join(BASE_DIR, 'soal matematika'),
+        r'C:\Users\Rafi\Downloads\Ulangan Harian\soal matematika',
         '/var/task/soal matematika'
     ]
     for c in candidates:
         if os.path.exists(c) and os.path.isdir(c):
             return c
-    default_path = r'C:\Users\Rafi\Downloads\Ulangan Harian\soal matematika'
+    default_path = os.path.join(BASE_DIR, 'soal matematika')
     try:
         os.makedirs(default_path, exist_ok=True)
     except Exception:
@@ -64,13 +71,13 @@ def get_student_hasil_dir():
     """Detects path to 'hasil ujian' in Ulangan Harian workspace."""
     candidates = [
         os.path.join(os.path.dirname(BASE_DIR), 'Ulangan Harian', 'hasil ujian'),
-        r'C:\Users\Rafi\Downloads\Ulangan Harian\hasil ujian',
-        os.path.join(BASE_DIR, 'hasil ujian')
+        os.path.join(BASE_DIR, 'hasil ujian'),
+        r'C:\Users\Rafi\Downloads\Ulangan Harian\hasil ujian'
     ]
     for c in candidates:
         if os.path.exists(c) and os.path.isdir(c):
             return c
-    default_path = r'C:\Users\Rafi\Downloads\Ulangan Harian\hasil ujian'
+    default_path = os.path.join(BASE_DIR, 'hasil ujian')
     try:
         os.makedirs(default_path, exist_ok=True)
     except Exception:
@@ -81,13 +88,13 @@ def get_student_key_dir():
     """Detects path to 'key' directory in Ulangan Harian workspace."""
     candidates = [
         os.path.join(os.path.dirname(BASE_DIR), 'Ulangan Harian', 'key'),
-        r'C:\Users\Rafi\Downloads\Ulangan Harian\key',
-        os.path.join(BASE_DIR, 'key')
+        os.path.join(BASE_DIR, 'key'),
+        r'C:\Users\Rafi\Downloads\Ulangan Harian\key'
     ]
     for c in candidates:
         if os.path.exists(c) and os.path.isdir(c):
             return c
-    default_path = r'C:\Users\Rafi\Downloads\Ulangan Harian\key'
+    default_path = os.path.join(BASE_DIR, 'key')
     try:
         os.makedirs(default_path, exist_ok=True)
     except Exception:
@@ -152,36 +159,112 @@ def scan_all_materials():
                     
     return results
 
+def parse_hasil_txt(txt_path):
+    info = {
+        'nama': '',
+        'kelas': '',
+        'materi': '',
+        'jurusan': '',
+        'tanggal': '',
+        'skor_pg': '',
+        'benar_pg': ''
+    }
+    try:
+        with open(txt_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line_str = line.strip()
+                if line_str.startswith('Nama') and ':' in line_str:
+                    info['nama'] = line_str.split(':', 1)[1].strip()
+                elif line_str.startswith('Kelas') and ':' in line_str:
+                    info['kelas'] = line_str.split(':', 1)[1].strip()
+                elif line_str.startswith('Materi') and ':' in line_str:
+                    info['materi'] = line_str.split(':', 1)[1].strip()
+                elif line_str.startswith('Jurusan') and ':' in line_str:
+                    info['jurusan'] = line_str.split(':', 1)[1].strip()
+                elif line_str.startswith('Tanggal') and ':' in line_str:
+                    info['tanggal'] = line_str.split(':', 1)[1].strip()
+                elif line_str.startswith('Skor PG') and ':' in line_str:
+                    info['skor_pg'] = line_str.split(':', 1)[1].strip()
+                elif line_str.startswith('Benar PG') and ':' in line_str:
+                    info['benar_pg'] = line_str.split(':', 1)[1].strip()
+    except Exception:
+        pass
+    return info
+
 def scan_student_results():
-    """Scans student exam results in 'hasil ujian' directory."""
+    """Scans student exam results in 'hasil ujian' directory with kelas and jurusan metadata."""
     hasil_dir = get_student_hasil_dir()
     results = []
     if not os.path.exists(hasil_dir):
         return results
 
-    for root, dirs, files in os.walk(hasil_dir):
-        for f in files:
-            file_path = os.path.join(root, f)
-            rel_path = os.path.relpath(file_path, hasil_dir)
-            file_size = os.path.getsize(file_path)
-            mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+    visited_dirs = set()
 
-            student_name = f.replace('.txt', '').replace('.json', '').replace('.csv', '').replace('_', ' ').title()
+    for root, dirs, files in os.walk(hasil_dir):
+        target_files = [f for f in files if f in ['hasil.txt', 'hasil_ujian.html'] or f.endswith('.txt') or f.endswith('.html')]
+        if not target_files or root in visited_dirs:
+            continue
             
-            results.append({
-                'filename': f,
-                'rel_path': rel_path,
-                'student_name': student_name,
-                'size_bytes': file_size,
-                'date': mod_time,
-                'full_path': file_path
-            })
+        visited_dirs.add(root)
+        txt_file = next((f for f in files if f == 'hasil.txt'), None) or next((f for f in files if f.endswith('.txt')), None)
+        html_file = next((f for f in files if f == 'hasil_ujian.html'), None) or next((f for f in files if f.endswith('.html')), None)
+        
+        main_file = txt_file or html_file
+        if not main_file:
+            continue
+
+        file_path = os.path.join(root, main_file)
+        rel_path = os.path.relpath(file_path, hasil_dir)
+        file_size = os.path.getsize(file_path)
+        mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+
+        norm_rel = rel_path.replace('\\', '/')
+        parts = norm_rel.split('/')
+        
+        parsed_info = {}
+        if txt_file:
+            parsed_info = parse_hasil_txt(os.path.join(root, txt_file))
+
+        folder_kelas = parts[0] if len(parts) >= 1 else 'Umum'
+        folder_materi = parts[1] if len(parts) >= 4 else (parts[1] if len(parts) == 3 else 'Umum')
+        folder_jurusan = parts[2] if len(parts) >= 4 else (parts[1] if len(parts) == 3 else 'Semua Jurusan')
+        folder_student = parts[3] if len(parts) >= 4 else (parts[2] if len(parts) == 3 else parts[-2] if len(parts) >= 2 else 'Siswa')
+
+        raw_kelas = parsed_info.get('kelas') or folder_kelas
+        norm_kelas = raw_kelas if raw_kelas.startswith('Kelas') else f"Kelas {raw_kelas}"
+        materi = parsed_info.get('materi') or folder_materi
+        jurusan = parsed_info.get('jurusan') or folder_jurusan
+        student_name = parsed_info.get('nama') or folder_student.replace('_', ' ').title()
+        date_str = parsed_info.get('tanggal') or mod_time
+        skor_pg = parsed_info.get('skor_pg') or '-'
+        benar_pg = parsed_info.get('benar_pg') or '-'
+
+        view_rel_path = norm_rel
+        if html_file:
+            view_rel_path = os.path.relpath(os.path.join(root, html_file), hasil_dir).replace('\\', '/')
+
+        results.append({
+            'filename': main_file,
+            'rel_path': norm_rel,
+            'view_rel_path': view_rel_path,
+            'student_name': student_name,
+            'kelas': norm_kelas,
+            'materi': materi,
+            'jurusan': jurusan,
+            'skor_pg': skor_pg,
+            'benar_pg': benar_pg,
+            'size_bytes': file_size,
+            'date': date_str,
+            'full_path': file_path
+        })
 
     results.sort(key=lambda x: x['date'], reverse=True)
     return results
 
 def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, essay_path=None, kunci_essay_path=None):
     """Pushes uploaded DOCX files directly to the remote PythonAnywhere Student Exam app via HTTP POST."""
+    if requests is None:
+        return False, "Package 'requests' belum terinstall."
     cfg = load_sync_config()
     remote_url = cfg.get('remote_url', '').strip().rstrip('/')
     if not remote_url:
@@ -374,7 +457,35 @@ def delete_soal():
 @app.route('/hasil-ujian')
 def hasil_ujian():
     student_results = scan_student_results()
-    return render_template('hasil_ujian.html', results=student_results)
+    
+    class_jurusan_map = {}
+    for r in student_results:
+        k = r.get('kelas', 'Kelas Umum')
+        j = r.get('jurusan', 'Semua Jurusan')
+        if k not in class_jurusan_map:
+            class_jurusan_map[k] = set()
+        if j:
+            class_jurusan_map[k].add(j)
+            
+    class_jurusan_json = {k: sorted(list(v)) for k, v in class_jurusan_map.items()}
+    sorted_classes = sorted(list(class_jurusan_map.keys()))
+
+    return render_template('hasil_ujian.html', 
+                           results=student_results,
+                           classes=sorted_classes,
+                           class_jurusan_json=json.dumps(class_jurusan_json))
+
+@app.route('/view-hasil/<path:filepath>')
+def view_hasil(filepath):
+    hasil_dir = get_student_hasil_dir()
+    full_path = os.path.abspath(os.path.join(hasil_dir, filepath))
+    if not full_path.startswith(os.path.abspath(hasil_dir)):
+        flash('Akses file tidak diizinkan.', 'danger')
+        return redirect(url_for('hasil_ujian'))
+    if os.path.exists(full_path):
+        return send_file(full_path)
+    flash('File hasil ujian tidak ditemukan.', 'danger')
+    return redirect(url_for('hasil_ujian'))
 
 @app.route('/sync-settings', methods=['GET', 'POST'])
 def sync_settings():
@@ -408,6 +519,8 @@ def sync_settings():
 
 @app.route('/api/preview-docx', methods=['POST'])
 def api_preview_docx():
+    if docx is None:
+        return jsonify({'error': 'python-docx belum terinstall'}), 500
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
     file = request.files['file']

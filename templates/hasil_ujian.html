@@ -2,60 +2,323 @@
 
 {% block title %}Hasil Ujian Siswa - Portal Guru{% endblock %}
 {% block header_title %}Hasil Ujian Siswa{% endblock %}
-{% block header_subtitle %}Monitoring dan rekapitulasi nilai hasil ujian siswa dari server ujian{% endblock %}
+{% block header_subtitle %}Monitoring dan rekapitulasi nilai hasil ujian siswa berdasarkan Kelas dan Jurusan{% endblock %}
 
 {% block content %}
-<div class="glass-card">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-    <div>
-      <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--text-primary);">Rekapitulasi Hasil Ujian Siswa</h2>
-      <p style="color: var(--text-secondary); font-size: 0.88rem;">Data lembar jawaban & nilai siswa yang tersimpan di server ujian (`Ulangan Harian`)</p>
+<div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+  <!-- Header Summary & Stats -->
+  <div class="stats-grid">
+    <div class="glass-card stat-card">
+      <div class="stat-icon emerald">
+        <i class="ph ph-file-text"></i>
+      </div>
+      <div>
+        <div class="stat-value" id="stat-total">{{ results|length }}</div>
+        <div class="stat-label">Total Berkas Hasil Ujian</div>
+      </div>
     </div>
-    <span class="badge-tag badge-emerald" style="font-size: 0.9rem; padding: 0.5rem 1rem;">
-      <i class="ph ph-check-circle"></i> {{ results|length }} Berkas Hasil
-    </span>
+    
+    <div class="glass-card stat-card">
+      <div class="stat-icon cyan">
+        <i class="ph ph-chalkboard-teacher"></i>
+      </div>
+      <div>
+        <div class="stat-value">{{ classes|length }}</div>
+        <div class="stat-label">Total Kelas Terdaftar</div>
+      </div>
+    </div>
+
+    <div class="glass-card stat-card">
+      <div class="stat-icon indigo">
+        <i class="ph ph-student"></i>
+      </div>
+      <div>
+        <div class="stat-value" id="stat-showing">{{ results|length }}</div>
+        <div class="stat-label">Hasil Ditampilkan</div>
+      </div>
+    </div>
   </div>
 
-  {% if results %}
-    <div class="table-responsive">
-      <table class="custom-table">
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>Nama Siswa / File Hasil</th>
-            <th>Jalur File Relatif</th>
-            <th>Ukuran File</th>
-            <th>Tanggal Penyerahan</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in results %}
-          <tr>
-            <td>{{ loop.index }}</td>
-            <td>
-              <strong style="color: var(--text-primary); font-size: 0.95rem;">
-                <i class="ph ph-file-text" style="color: var(--accent-cyan); margin-right: 0.35rem;"></i> {{ r.student_name }}
-              </strong>
-            </td>
-            <td>
-              <span class="badge-tag badge-indigo" style="font-size: 0.8rem;">{{ r.rel_path }}</span>
-            </td>
-            <td>
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ (r.size_bytes / 1024)|round(1) }} KB</span>
-            </td>
-            <td>
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ r.date }}</span>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <!-- Filter Section: Step 1 - Pilih Kelas -->
+  <div class="glass-card" style="padding: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+          <i class="ph ph-funnel" style="color: var(--accent-cyan);"></i> Filter Kelas & Jurusan
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem;">Pilih kelas untuk menampilkan daftar jurusan siswa</p>
+      </div>
+
+      <!-- Live Search Box -->
+      <div style="position: relative; width: 280px;">
+        <i class="ph ph-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+        <input type="text" id="search-input" class="form-control" placeholder="Cari nama siswa / materi..." style="padding-left: 2.5rem; font-size: 0.88rem;">
+      </div>
     </div>
-  {% else %}
-    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
-      <i class="ph ph-chart-line" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 0.75rem;"></i>
-      <p style="font-size: 1rem;">Belum ada berkas hasil ujian siswa yang tersimpan.</p>
+
+    <!-- 1. Kelas Cards Selector -->
+    <div style="margin-bottom: 1.25rem;">
+      <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--accent-cyan); letter-spacing: 0.05em; margin-bottom: 0.6rem;">
+        1. Pilih Kelas:
+      </div>
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;" id="kelas-buttons-container">
+        <button type="button" class="btn btn-secondary active-kelas-btn" data-kelas="ALL" onclick="filterByKelas('ALL')" style="border-radius: var(--radius-full); padding: 0.5rem 1.25rem; font-size: 0.88rem; background: var(--gradient-primary); color: #fff; border: none;">
+          <i class="ph ph-squares-four"></i> Semua Kelas ({{ results|length }})
+        </button>
+        {% for c in classes %}
+          <button type="button" class="btn btn-secondary kelas-btn" data-kelas="{{ c }}" onclick="filterByKelas('{{ c }}')" style="border-radius: var(--radius-full); padding: 0.5rem 1.25rem; font-size: 0.88rem;">
+            <i class="ph ph-users-three"></i> {{ c }}
+          </button>
+        {% endfor %}
+      </div>
     </div>
-  {% endif %}
+
+    <!-- 2. Sub-filter Jurusan Pills (Appears when class is selected) -->
+    <div id="jurusan-filter-section" style="padding-top: 1rem; border-top: 1px dashed var(--border-glass);">
+      <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--accent-indigo); letter-spacing: 0.05em; margin-bottom: 0.6rem;">
+        2. Pilih Jurusan <span id="active-kelas-title" style="color: var(--text-secondary); font-weight: 400;">(Semua Kelas)</span>:
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="jurusan-buttons-container">
+        <button type="button" class="btn btn-secondary active-jurusan-btn" data-jurusan="ALL" onclick="filterByJurusan('ALL')" style="border-radius: var(--radius-sm); padding: 0.35rem 0.85rem; font-size: 0.82rem; background: var(--accent-indigo); color: #fff; border: none;">
+          Semua Jurusan
+        </button>
+        <!-- Dynamic Jurusan Buttons rendered via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Table Results Card -->
+  <div class="glass-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Rekapitulasi Lembar Hasil Ujian</h2>
+      <button type="button" class="btn btn-secondary" onclick="resetFilters()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem;">
+        <i class="ph ph-arrow-counter-clockwise"></i> Reset Filter
+      </button>
+    </div>
+
+    {% if results %}
+      <div class="table-responsive">
+        <table class="custom-table" id="results-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">No</th>
+              <th>Nama Siswa</th>
+              <th>Kelas</th>
+              <th>Jurusan</th>
+              <th>Materi Ujian</th>
+              <th>Skor PG</th>
+              <th>Tanggal</th>
+              <th style="text-align: center;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in results %}
+            <tr class="result-row" data-kelas="{{ r.kelas }}" data-jurusan="{{ r.jurusan }}" data-student="{{ r.student_name|lower }}" data-materi="{{ r.materi|lower }}">
+              <td>{{ loop.index }}</td>
+              <td>
+                <strong style="color: var(--text-primary); font-size: 0.95rem;">
+                  <i class="ph ph-user" style="color: var(--accent-cyan); margin-right: 0.35rem;"></i> {{ r.student_name }}
+                </strong>
+              </td>
+              <td>
+                <span class="badge-tag badge-cyan">{{ r.kelas }}</span>
+              </td>
+              <td>
+                <span class="badge-tag badge-indigo" style="font-weight: 700;">{{ r.jurusan }}</span>
+              </td>
+              <td>
+                <span style="font-size: 0.88rem; color: var(--text-primary);">{{ r.materi }}</span>
+              </td>
+              <td>
+                {% if r.skor_pg != '-' %}
+                  <span class="badge-tag {% if r.skor_pg|float >= 30 %}badge-emerald{% elif r.skor_pg|float >= 20 %}badge-cyan{% else %}badge-rose{% endif %}" style="font-size: 0.85rem; font-weight: 700;">
+                    {{ r.skor_pg }}
+                  </span>
+                {% else %}
+                  <span style="font-size: 0.85rem; color: var(--text-muted);">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <span style="font-size: 0.82rem; color: var(--text-secondary);">{{ r.date }}</span>
+              </td>
+              <td style="text-align: center;">
+                <a href="{{ url_for('view_hasil', filepath=r.view_rel_path) }}" target="_blank" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: var(--radius-sm);">
+                  <i class="ph ph-eye"></i> Lihat Hasil
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div id="empty-filter-state" style="display: none; text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+        <i class="ph ph-magnifying-glass-slash" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 0.75rem;"></i>
+        <p style="font-size: 1rem; font-weight: 600;">Tidak ada berkas hasil siswa yang sesuai dengan filter.</p>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Coba ubah pilihan kelas, jurusan, atau kata kunci pencarian Anda.</p>
+      </div>
+
+    {% else %}
+      <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+        <i class="ph ph-chart-line" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 0.75rem;"></i>
+        <p style="font-size: 1rem;">Belum ada berkas hasil ujian siswa yang tersimpan.</p>
+      </div>
+    {% endif %}
+  </div>
 </div>
+
+<script id="class-jurusan-data" type="application/json">
+{{ class_jurusan_json|safe }}
+</script>
+<script>
+  const classJurusanData = JSON.parse(document.getElementById('class-jurusan-data').textContent);
+  let activeKelas = 'ALL';
+  let activeJurusan = 'ALL';
+  let searchQuery = '';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    updateJurusanButtons();
+    
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      searchQuery = e.target.value.toLowerCase().trim();
+      applyFilters();
+    });
+  });
+
+  function filterByKelas(kelas) {
+    activeKelas = kelas;
+    activeJurusan = 'ALL'; // reset jurusan filter when class changes
+
+    // Update Kelas button active styles
+    document.querySelectorAll('.kelas-btn, .active-kelas-btn').forEach(btn => {
+      if (btn.dataset.kelas === kelas) {
+        btn.style.background = 'var(--gradient-primary)';
+        btn.style.color = '#fff';
+        btn.style.border = 'none';
+      } else {
+        btn.style.background = 'rgba(255, 255, 255, 0.08)';
+        btn.style.color = 'var(--text-primary)';
+        btn.style.border = '1px solid var(--border-glass)';
+      }
+    });
+
+    // Update title text
+    const titleEl = document.getElementById('active-kelas-title');
+    titleEl.textContent = kelas === 'ALL' ? '(Semua Kelas)' : `(${kelas})`;
+
+    updateJurusanButtons();
+    applyFilters();
+  }
+
+  function updateJurusanButtons() {
+    const container = document.getElementById('jurusan-buttons-container');
+    container.innerHTML = '';
+
+    // "Semua Jurusan" button
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = 'btn btn-secondary';
+    allBtn.textContent = 'Semua Jurusan';
+    allBtn.style.borderRadius = 'var(--radius-sm)';
+    allBtn.style.padding = '0.35rem 0.85rem';
+    allBtn.style.fontSize = '0.82rem';
+    
+    if (activeJurusan === 'ALL') {
+      allBtn.style.background = 'var(--accent-indigo)';
+      allBtn.style.color = '#fff';
+      allBtn.style.border = 'none';
+    } else {
+      allBtn.style.background = 'rgba(255, 255, 255, 0.08)';
+      allBtn.style.color = 'var(--text-primary)';
+      allBtn.style.border = '1px solid var(--border-glass)';
+    }
+
+    allBtn.onclick = () => filterByJurusan('ALL');
+    container.appendChild(allBtn);
+
+    // Get list of jurusans for active class
+    let availableJurusans = new Set();
+    if (activeKelas === 'ALL') {
+      Object.values(classJurusanData).forEach(list => {
+        list.forEach(j => availableJurusans.add(j));
+      });
+    } else if (classJurusanData[activeKelas]) {
+      classJurusanData[activeKelas].forEach(j => availableJurusans.add(j));
+    }
+
+    Array.from(availableJurusans).sort().forEach(j => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-secondary';
+      btn.textContent = j;
+      btn.style.borderRadius = 'var(--radius-sm)';
+      btn.style.padding = '0.35rem 0.85rem';
+      btn.style.fontSize = '0.82rem';
+
+      if (activeJurusan === j) {
+        btn.style.background = 'var(--accent-indigo)';
+        btn.style.color = '#fff';
+        btn.style.border = 'none';
+      } else {
+        btn.style.background = 'rgba(255, 255, 255, 0.08)';
+        btn.style.color = 'var(--text-primary)';
+        btn.style.border = '1px solid var(--border-glass)';
+      }
+
+      btn.onclick = () => filterByJurusan(j);
+      container.appendChild(btn);
+    });
+  }
+
+  function filterByJurusan(jurusan) {
+    activeJurusan = jurusan;
+    updateJurusanButtons();
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const rows = document.querySelectorAll('.result-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const rKelas = row.dataset.kelas;
+      const rJurusan = row.dataset.jurusan;
+      const rStudent = row.dataset.student;
+      const rMateri = row.dataset.materi;
+
+      const matchesKelas = (activeKelas === 'ALL' || rKelas === activeKelas);
+      const matchesJurusan = (activeJurusan === 'ALL' || rJurusan === activeJurusan);
+      const matchesSearch = !searchQuery || rStudent.includes(searchQuery) || rMateri.includes(searchQuery);
+
+      if (matchesKelas && matchesJurusan && matchesSearch) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    document.getElementById('stat-showing').textContent = visibleCount;
+    const emptyState = document.getElementById('empty-filter-state');
+    const tableEl = document.getElementById('results-table');
+
+    if (visibleCount === 0 && rows.length > 0) {
+      emptyState.style.display = 'block';
+      if (tableEl) tableEl.style.display = 'none';
+    } else {
+      emptyState.style.display = 'none';
+      if (tableEl) tableEl.style.display = '';
+    }
+  }
+
+  function resetFilters() {
+    activeKelas = 'ALL';
+    activeJurusan = 'ALL';
+    searchQuery = '';
+    document.getElementById('search-input').value = '';
+    filterByKelas('ALL');
+  }
+</script>
 {% endblock %}
+
