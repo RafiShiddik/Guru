@@ -267,6 +267,24 @@ def scan_student_results():
     results.sort(key=lambda x: x['date'], reverse=True)
     return results
 
+def fetch_remote_student_results():
+    """Fetches student exam results and registered classes from remote student app (14214.pythonanywhere.com)."""
+    if requests is None:
+        return [], []
+    cfg = load_sync_config()
+    remote_url = cfg.get('remote_url', '').strip().rstrip('/')
+    if not remote_url:
+        return [], []
+    
+    try:
+        resp = requests.get(f"{remote_url}/api/get_student_results", timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get('results', []), data.get('classes', [])
+    except Exception as e:
+        print(f"[Remote Results Fetch Error] {e}")
+    return [], []
+
 def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, essay_path=None, kunci_essay_path=None):
     """Pushes uploaded DOCX files directly to the remote PythonAnywhere Student Exam app via HTTP POST."""
     if requests is None:
@@ -467,7 +485,7 @@ def hasil_ujian():
     
     class_jurusan_map = {}
     
-    # 1. Register existing class directories in hasil ujian folder
+    # 1. Register existing class directories in local hasil ujian folder
     if os.path.exists(hasil_dir):
         for item in os.listdir(hasil_dir):
             item_path = os.path.join(hasil_dir, item)
@@ -475,7 +493,7 @@ def hasil_ujian():
                 norm_k = item if item.startswith('Kelas') else f"Kelas {item}"
                 class_jurusan_map[norm_k] = set()
 
-    # 2. Add classes and jurusans from scanned result files
+    # 2. Add classes and jurusans from local scanned result files
     for r in student_results:
         k = r.get('kelas', 'Kelas Umum')
         j = r.get('jurusan', 'Semua Jurusan')
@@ -483,6 +501,25 @@ def hasil_ujian():
             class_jurusan_map[k] = set()
         if j:
             class_jurusan_map[k].add(j)
+
+    # 3. Fetch from remote student server (14214.pythonanywhere.com) if configured
+    remote_results, remote_classes = fetch_remote_student_results()
+    if remote_classes:
+        for c in remote_classes:
+            if c not in class_jurusan_map:
+                class_jurusan_map[c] = set()
+
+    if remote_results:
+        local_rel_paths = {r['rel_path'] for r in student_results}
+        for rr in remote_results:
+            if rr['rel_path'] not in local_rel_paths:
+                student_results.append(rr)
+                k = rr.get('kelas', 'Kelas Umum')
+                j = rr.get('jurusan', 'Semua Jurusan')
+                if k not in class_jurusan_map:
+                    class_jurusan_map[k] = set()
+                if j:
+                    class_jurusan_map[k].add(j)
             
     class_jurusan_json = {k: sorted(list(v)) for k, v in class_jurusan_map.items()}
     sorted_classes = sorted(list(class_jurusan_map.keys()))
@@ -496,11 +533,21 @@ def hasil_ujian():
 def view_hasil(filepath):
     hasil_dir = get_student_hasil_dir()
     full_path = os.path.abspath(os.path.join(hasil_dir, filepath))
-    if not full_path.startswith(os.path.abspath(hasil_dir)):
-        flash('Akses file tidak diizinkan.', 'danger')
-        return redirect(url_for('hasil_ujian'))
-    if os.path.exists(full_path):
+    if os.path.exists(full_path) and full_path.startswith(os.path.abspath(hasil_dir)):
         return send_file(full_path)
+
+    # Fallback to remote student server (14214.pythonanywhere.com)
+    cfg = load_sync_config()
+    remote_url = cfg.get('remote_url', '').strip().rstrip('/')
+    if remote_url and requests:
+        try:
+            r_resp = requests.get(f"{remote_url}/view-hasil/{filepath}", timeout=10)
+            if r_resp.status_code == 200:
+                from flask import Response
+                return Response(r_resp.content, mimetype=r_resp.headers.get('Content-Type', 'text/html'))
+        except Exception:
+            pass
+
     flash('File hasil ujian tidak ditemukan.', 'danger')
     return redirect(url_for('hasil_ujian'))
 
