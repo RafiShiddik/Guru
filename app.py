@@ -159,11 +159,69 @@ def scan_all_materials():
                         'timestamp': '',
                         'has_pg': True,
                         'has_key': False,
-                        'has_essay': False,
                         'files': docx_files
                     })
                     
+    local_keys = {(m['kelas'], m['materi']) for m in results}
+    remote_mats = fetch_remote_materials()
+    for rm in remote_mats:
+        if (rm['kelas'], rm['materi']) not in local_keys:
+            results.append(rm)
+
     return results
+
+def fetch_remote_materials():
+    """Fetches list of exam materials from remote student app (14214.pythonanywhere.com)."""
+    if requests is None:
+        return []
+    cfg = load_sync_config()
+    sync_token = cfg.get('sync_token', '').strip()
+    remote_results = []
+
+    if sync_token:
+        try:
+            pa_user = '14214'
+            pa_url = cfg.get('pa_account_url', '')
+            if 'user/' in pa_url:
+                parts = pa_url.split('user/')[1].split('/')
+                if parts and parts[0]:
+                    pa_user = parts[0].strip()
+                    
+            headers = {'Authorization': f'Token {sync_token}'}
+            api_path_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/soal%20matematika/"
+            
+            resp = requests.get(api_path_url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                contents = data.get('contents', [])
+                for item in contents:
+                    if isinstance(item, dict) and item.get('type') == 'directory':
+                        class_folder = os.path.basename(item.get('path', ''))
+                        norm_class = class_folder.replace('Kelas ', '').replace('kelas ', '').strip()
+                        
+                        sub_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{item.get('path')}/"
+                        s_resp = requests.get(sub_url, headers=headers, timeout=5)
+                        if s_resp.status_code == 200:
+                            s_contents = s_resp.json().get('contents', [])
+                            for s_item in s_contents:
+                                if isinstance(s_item, dict) and s_item.get('type') == 'directory':
+                                    mat_name = os.path.basename(s_item.get('path', ''))
+                                    remote_results.append({
+                                        'kelas_raw': class_folder,
+                                        'kelas': norm_class,
+                                        'materi': mat_name,
+                                        'jurusan': 'Semua Jurusan',
+                                        'uploaded_by': 'Server Siswa Remote',
+                                        'timestamp': '',
+                                        'has_pg': True,
+                                        'has_key': False,
+                                        'has_essay': False,
+                                        'files': []
+                                    })
+        except Exception as e:
+            print(f"[Remote Materials Fetch Error] {e}")
+            
+    return remote_results
 
 def parse_hasil_txt(txt_path):
     info = {
