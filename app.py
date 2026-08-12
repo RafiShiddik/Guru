@@ -2,6 +2,7 @@ import os
 import re
 import json
 import shutil
+import urllib.parse
 try:
     import docx
 except ImportError:
@@ -199,7 +200,9 @@ def fetch_remote_materials():
                         class_folder = os.path.basename(item.get('path', ''))
                         norm_class = class_folder.replace('Kelas ', '').replace('kelas ', '').strip()
                         
-                        sub_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{item.get('path')}/"
+                        sub_path = item.get('path', '')
+                        encoded_sub_path = urllib.parse.quote(sub_path, safe='/')
+                        sub_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{encoded_sub_path}/"
                         s_resp = requests.get(sub_url, headers=headers, timeout=5)
                         if s_resp.status_code == 200:
                             s_contents = s_resp.json().get('contents', [])
@@ -400,7 +403,8 @@ def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, 
             for fp in file_paths:
                 if fp and os.path.exists(fp):
                     fname = os.path.basename(fp)
-                    target_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/soal%20matematika/{norm_k}/{materi}/{fname}"
+                    file_rel_path = f"/home/{pa_user}/soal matematika/{norm_k}/{materi}/{fname}"
+                    target_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{urllib.parse.quote(file_rel_path, safe='/')}"
                     with open(fp, 'rb') as f_in:
                         r = requests.post(target_api, headers=headers, files={'content': f_in}, timeout=10)
                         if r.status_code in (200, 201):
@@ -414,7 +418,8 @@ def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, 
                 'uploaded_by': session.get('guru_nama', 'Guru'),
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
-            meta_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/soal%20matematika/{norm_k}/{materi}/metadata.json"
+            meta_rel_path = f"/home/{pa_user}/soal matematika/{norm_k}/{materi}/metadata.json"
+            meta_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{urllib.parse.quote(meta_rel_path, safe='/')}"
             requests.post(meta_api, headers=headers, files={'content': json.dumps(meta_data, indent=2)}, timeout=10)
             
             if uploaded_count > 0:
@@ -690,7 +695,8 @@ def view_hasil(filepath):
                     
             headers = {'Authorization': f'Token {sync_token}'}
             clean_fp = filepath.replace('\\', '/')
-            api_file_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/hasil%20ujian/{clean_fp}"
+            rel_fp = f"/home/{pa_user}/hasil ujian/{clean_fp}"
+            api_file_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{urllib.parse.quote(rel_fp, safe='/')}"
             
             r_resp = requests.get(api_file_url, headers=headers, timeout=10)
             if r_resp.status_code == 200:
