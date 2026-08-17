@@ -634,17 +634,35 @@ def delete_soal():
         flash('Data tidak valid.', 'danger')
         return redirect(url_for('kelola_soal'))
 
+    norm_k = kelas_raw if kelas_raw.startswith('Kelas') else f"Kelas {kelas_raw}"
+    
+    # 1. Delete locally if exists
     base_dir = get_student_soal_base_dir()
-    target_dir = os.path.join(base_dir, kelas_raw, materi)
-
-    if os.path.exists(target_dir) and os.path.isdir(target_dir):
+    local_target = os.path.join(base_dir, norm_k, materi)
+    deleted_local = False
+    if os.path.exists(local_target) and os.path.isdir(local_target):
         try:
-            shutil.rmtree(target_dir)
-            flash(f'Materi "{materi}" dari {kelas_raw} berhasil dihapus.', 'success')
+            shutil.rmtree(local_target)
+            deleted_local = True
         except Exception as e:
-            flash(f'Gagal menghapus folder: {str(e)}', 'danger')
+            print(f"[Local Delete Error] {e}")
+
+    # 2. Delete remotely on Remote Student Exam Server (14214) via HTTP API
+    cfg = load_sync_config()
+    remote_url = cfg.get('remote_url', '').strip().rstrip('/')
+    deleted_remote = False
+    if remote_url and requests:
+        try:
+            resp = requests.post(f"{remote_url}/api/delete_soal", data={'kelas': norm_k, 'materi': materi}, timeout=6)
+            if resp.status_code == 200:
+                deleted_remote = True
+        except Exception as e:
+            print(f"[Remote Delete Error] {e}")
+
+    if deleted_local or deleted_remote:
+        flash(f'Materi "{materi}" ({norm_k}) berhasil dihapus.', 'success')
     else:
-        flash('Folder materi tidak ditemukan.', 'danger')
+        flash(f'Gagal menghapus materi "{materi}". Folder tidak ditemukan.', 'danger')
 
     return redirect(url_for('kelola_soal'))
 
