@@ -30,8 +30,8 @@ CONFIG_FILE = os.path.join(BASE_DIR, 'sync_config.json')
 
 def load_sync_config():
     default_cfg = {
-        'remote_url': 'https://14214.pythonanywhere.com',
-        'pa_account_url': 'https://www.pythonanywhere.com/user/14214/',
+        'remote_url': 'https://achmadrafi12.pythonanywhere.com',
+        'pa_account_url': 'https://www.pythonanywhere.com/user/achmadrafi12/',
         'sync_token': ''
     }
     if os.path.exists(CONFIG_FILE):
@@ -172,7 +172,7 @@ def scan_all_materials():
     return results
 
 def fetch_remote_materials():
-    """Fetches list of exam materials from remote student app (14214.pythonanywhere.com)."""
+    """Fetches list of exam materials from remote student app (achmadrafi12.pythonanywhere.com)."""
     if requests is None:
         return []
     cfg = load_sync_config()
@@ -181,7 +181,7 @@ def fetch_remote_materials():
 
     if sync_token:
         try:
-            pa_user = '14214'
+            pa_user = 'achmadrafi12'
             pa_url = cfg.get('pa_account_url', '')
             if 'user/' in pa_url:
                 parts = pa_url.split('user/')[1].split('/')
@@ -342,7 +342,7 @@ def fetch_remote_student_results():
     # 1. Try PythonAnywhere Official REST API if API token is configured
     if sync_token:
         try:
-            pa_user = '14214'
+            pa_user = 'achmadrafi12'
             pa_url = cfg.get('pa_account_url', '')
             if 'user/' in pa_url:
                 pa_user = pa_url.split('user/')[1].split('/')[0].strip() or '14214'
@@ -386,9 +386,9 @@ def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, 
         return False, "Package 'requests' belum terinstall."
     cfg = load_sync_config()
     sync_token = cfg.get('sync_token', '').strip()
-    remote_url = cfg.get('remote_url', 'https://14214.pythonanywhere.com').strip().rstrip('/')
+    remote_url = cfg.get('remote_url', 'https://achmadrafi12.pythonanywhere.com').strip().rstrip('/')
     if not remote_url:
-        remote_url = 'https://14214.pythonanywhere.com'
+        remote_url = 'https://achmadrafi12.pythonanywhere.com'
 
     upload_success = False
     status_msg = ""
@@ -431,7 +431,7 @@ def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, 
     # 2. Try PythonAnywhere Official REST API as direct sync
     if sync_token:
         try:
-            pa_user = '14214'
+            pa_user = 'achmadrafi12'
             pa_url = cfg.get('pa_account_url', '')
             if 'user/' in pa_url:
                 pa_user = pa_url.split('user/')[1].split('/')[0].strip() or '14214'
@@ -654,7 +654,7 @@ def hasil_ujian():
         if j:
             class_jurusan_map[k].add(j)
 
-    # 3. Fetch from remote student server (14214.pythonanywhere.com) if configured
+    # 3. Fetch from remote student server (achmadrafi12.pythonanywhere.com) if configured
     remote_results, remote_classes = fetch_remote_student_results()
     if remote_classes:
         for c in remote_classes:
@@ -753,8 +753,8 @@ def sync_settings():
         return redirect(url_for('sync_settings'))
 
     return render_template('sync_settings.html', 
-                           current_remote_url=cfg.get('remote_url', 'https://14214.pythonanywhere.com'),
-                           pa_account_url=cfg.get('pa_account_url', 'https://www.pythonanywhere.com/user/14214/'),
+                           current_remote_url=cfg.get('remote_url', 'https://achmadrafi12.pythonanywhere.com'),
+                           pa_account_url=cfg.get('pa_account_url', 'https://www.pythonanywhere.com/user/achmadrafi12/'),
                            current_sync_token=cfg.get('sync_token', ''),
                            key_files=key_files)
 

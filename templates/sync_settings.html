@@ -2,23 +2,23 @@
 
 {% block title %}Sinkronisasi Remote & Key - Portal Guru{% endblock %}
 {% block header_title %}Sinkronisasi Cloud & Key Service Account{% endblock %}
-{% block header_subtitle %}Konfigurasi integrasi PythonAnywhere (User 14214) dan Key Google Sheets{% endblock %}
+{% block header_subtitle %}Konfigurasi integrasi PythonAnywhere (User achmadrafi12) dan Key Google Sheets{% endblock %}
 
 {% block content %}
 <div class="glass-card" style="max-width: 850px; margin: 0 auto;">
   <div style="border-bottom: 1px solid var(--border-glass); padding-bottom: 1.25rem; margin-bottom: 1.75rem;">
     <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.6rem;">
-      <i class="ph ph-cloud-arrow-up"></i> Integrasi Account PythonAnywhere (User 14214)
+      <i class="ph ph-cloud-arrow-up"></i> Integrasi Account PythonAnywhere (User achmadrafi12)
     </h2>
     <p style="font-size: 0.88rem; color: var(--text-secondary);">
-      Server ujian siswa di-host pada akun PythonAnywhere: <a href="{{ pa_account_url }}" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">https://www.pythonanywhere.com/user/14214/</a>.
+      Server ujian siswa di-host pada akun PythonAnywhere: <a href="{{ pa_account_url }}" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">https://www.pythonanywhere.com/user/achmadrafi12/</a>.
     </p>
   </div>
 
   <form action="{{ url_for('sync_settings') }}" method="POST" enctype="multipart/form-data">
     <div class="form-group">
       <label class="form-label" for="remote_url">URL Server Ujian Siswa (PythonAnywhere):</label>
-      <input type="url" name="remote_url" id="remote_url" class="form-control" placeholder="https://14214.pythonanywhere.com" value="{{ current_remote_url }}">
+      <input type="url" name="remote_url" id="remote_url" class="form-control" placeholder="https://achmadrafi12.pythonanywhere.com" value="{{ current_remote_url }}">
       <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">URL domain publik aplikasi ujian siswa yang berjalan di PythonAnywhere.</div>
     </div>
 
@@ -30,7 +30,7 @@
 
     <div class="form-group">
       <label class="form-label" for="pa_account_url">Link Dashboard User PythonAnywhere:</label>
-      <input type="url" name="pa_account_url" id="pa_account_url" class="form-control" placeholder="https://www.pythonanywhere.com/user/14214/" value="{{ pa_account_url }}">
+      <input type="url" name="pa_account_url" id="pa_account_url" class="form-control" placeholder="https://www.pythonanywhere.com/user/achmadrafi12/" value="{{ pa_account_url }}">
     </div>
 
     <!-- Google Key File Section -->
@@ -63,7 +63,7 @@
         <i class="ph ph-floppy-disk"></i> Simpan Pengaturan
       </button>
       <a href="{{ pa_account_url }}" target="_blank" class="btn btn-secondary">
-        <i class="ph ph-arrow-square-out"></i> Buka PythonAnywhere User 14214
+        <i class="ph ph-arrow-square-out"></i> Buka PythonAnywhere User achmadrafi12
       </a>
     </div>
   </form>

@@ -9,3 +9,4 @@ ENV/
 .vscode/
 .ipynb_checkpoints/
 *.log
+sync_config.json
