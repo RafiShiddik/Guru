@@ -778,6 +778,87 @@ def api_preview_docx():
     except Exception as e:
         return jsonify({'error': f'Failed to parse docx: {str(e)}'}), 500
 
+@app.route('/api/receive_results', methods=['POST'])
+@app.route('/api/upload_hasil', methods=['POST'])
+@app.route('/api/hasil_ujian', methods=['POST'])
+@app.route('/api/submit_hasil', methods=['POST'])
+def api_receive_results():
+    """API endpoint to receive incoming student exam results from Student Exam App (Ulangan Harian)."""
+    try:
+        data = request.get_json(force=True, silent=True) or request.form.to_dict()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+        nama_siswa = data.get('nama_siswa') or data.get('nama', 'Siswa')
+        kelas = data.get('kelas', 'Umum')
+        jurusan = data.get('jurusan', 'Semua Jurusan')
+        materi = data.get('materi', '')
+        score = data.get('score') or data.get('nilai', 0)
+        correct_count = data.get('correct_count', 0)
+        total_count = data.get('total_count', 0)
+        lock_count = data.get('lock_count', 0)
+        timestamp = data.get('timestamp') or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        details = data.get('details', [])
+        essay_details = data.get('essay_details', [])
+
+        folder_kelas = kelas if kelas.startswith('Kelas') else f"Kelas {kelas}"
+        hasil_dir = get_student_hasil_dir()
+
+        if materi:
+            target_dir = os.path.join(hasil_dir, folder_kelas, materi, jurusan, nama_siswa)
+        else:
+            target_dir = os.path.join(hasil_dir, folder_kelas, jurusan, nama_siswa)
+
+        os.makedirs(target_dir, exist_ok=True)
+
+        txt_path = os.path.join(target_dir, 'hasil.txt')
+        with open(txt_path, 'w', encoding='utf-8') as f:
+            f.write("==================================================\n")
+            f.write("HASIL UJIAN SISWA - SMK BUDI MURNI 2\n")
+            f.write("==================================================\n")
+            f.write(f"Nama                 : {nama_siswa}\n")
+            f.write(f"Kelas                : {kelas}\n")
+            f.write(f"Materi               : {materi}\n")
+            f.write(f"Jurusan              : {jurusan}\n")
+            f.write(f"Tanggal              : {timestamp}\n")
+            f.write(f"Frekuensi Keluar Tab : {lock_count} kali\n")
+            f.write(f"Skor PG              : {score} / 40 (Bobot 40%)\n")
+            f.write(f"Benar PG             : {correct_count} dari {total_count} soal\n")
+            f.write("--------------------------------------------------\n")
+            f.write("CATATAN NILAI:\n")
+            f.write("Catatan: Ini adalah nilai sementara Pilihan Ganda. Nilai akhir dapat berubah setelah soal esai diperiksa.\n")
+            f.write("--------------------------------------------------\n")
+            f.write("KETERANGAN LEMBAR ESAI:\n")
+            f.write("Harap tulis caranya di kertas selembar/coret coretan jika tidak maka nilai yang anda dapatkan setengah dari nilai seharusnya!\n")
+            f.write("--------------------------------------------------\n")
+            f.write("DETAIL JAWABAN PILIHAN GANDA:\n")
+            for d in details:
+                status_symbol = "BENAR" if d.get('is_correct') else "SALAH"
+                f.write(f"Soal {d.get('index')}: {status_symbol}\n")
+                f.write(f"  Jawaban Siswa: {d.get('student_answer') or '-'}\n")
+                f.write(f"  Jawaban Kunci: {d.get('correct_answer', '')}\n\n")
+
+            if essay_details:
+                f.write("--------------------------------------------------\n")
+                f.write("DETAIL JAWABAN ESAI (TIDAK DINILAI OTOMATIS):\n")
+                for ed in essay_details:
+                    f.write(f"Soal Esai {ed.get('index')}: {ed.get('question', '')}\n")
+                    f.write(f"  Jawaban Siswa: {ed.get('student_answer') or '(Kosong)'}\n\n")
+
+        return jsonify({'status': 'success', 'message': f'Hasil ujian {nama_siswa} berhasil diterima'}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/get_student_results')
+def api_get_student_results():
+    """API endpoint to return scanned student results and classes list as JSON."""
+    results = scan_student_results()
+    classes_set = sorted(list({r.get('kelas', 'Kelas Umum') for r in results}))
+    return jsonify({
+        'results': results,
+        'classes': classes_set
+    })
+
 if __name__ == '__main__':
     print("=" * 60)
     print("  SERVER GURU (TEACHER PORTAL) RUNNING ON PORT 5050")
