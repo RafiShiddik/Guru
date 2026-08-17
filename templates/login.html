@@ -25,13 +25,24 @@
         <label class="form-label" for="namaGuru">Nama Guru Pengajar <span style="color: var(--accent-rose);">*</span></label>
         <select name="nama" id="namaGuru" class="form-select" style="padding: 0.95rem 1.1rem; font-size: 1rem; font-weight: 600;" required>
           <option value="" disabled selected>-- Pilih Nama Guru --</option>
-          <option value="Ir. Ely Rosidah">Ir. Ely Rosidah</option>
-          <option value="Achmad Rafi Shiddik">Achmad Rafi Shiddik</option>
+          {% if teachers %}
+            {% for t in teachers %}
+              <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          {% else %}
+            <option value="Ir. Ely Rosidah">Ir. Ely Rosidah</option>
+            <option value="Achmad Rafi Shiddik">Achmad Rafi Shiddik</option>
+          {% endif %}
         </select>
       </div>
 
       <div class="form-group" style="margin-top: 1.25rem;">
-        <label class="form-label" for="password">Password Akun <span style="color: var(--accent-rose);">*</span></label>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+          <label class="form-label" for="password" style="margin-bottom: 0;">Password Akun <span style="color: var(--accent-rose);">*</span></label>
+          <a href="{{ url_for('lupa_password') }}" style="color: var(--accent-cyan); text-decoration: none; font-size: 0.85rem; font-weight: 600; transition: all 0.2s;">
+            <i class="ph ph-key"></i> Lupa Password?
+          </a>
+        </div>
         <input type="password" name="password" id="password" class="form-control" placeholder="Masukkan password Anda" style="padding: 0.95rem 1.1rem;" required>
       </div>
 

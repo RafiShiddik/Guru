@@ -20,11 +20,33 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
 app.secret_key = 'guru_portal_bm2_secure_key_2026'
 
-# Teacher accounts and passwords
-TEACHERS_CREDENTIALS = {
-    'Ir. Ely Rosidah': 'Bu Ely Cantik',
+# Teacher accounts and passwords persistence
+TEACHERS_FILE = os.path.join(BASE_DIR, 'teachers_passwords.json')
+DEFAULT_TEACHERS = {
+    'Ir. Ely Rosidah': 'ely12345',
     'Achmad Rafi Shiddik': 'Achmad 123'
 }
+
+def load_teachers_credentials():
+    if os.path.exists(TEACHERS_FILE):
+        try:
+            with open(TEACHERS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if isinstance(data, dict) and data:
+                    return data
+        except Exception:
+            pass
+    save_teachers_credentials(DEFAULT_TEACHERS)
+    return dict(DEFAULT_TEACHERS)
+
+def save_teachers_credentials(creds):
+    try:
+        with open(TEACHERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(creds, f, indent=2)
+    except Exception:
+        pass
+
+TEACHERS_CREDENTIALS = load_teachers_credentials()
 
 CONFIG_FILE = os.path.join(BASE_DIR, 'sync_config.json')
 
@@ -500,34 +522,74 @@ def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, 
 
 @app.before_request
 def check_auth():
-    allowed_routes = ['login', 'static']
+    allowed_routes = ['login', 'lupa_password', 'static']
     if request.endpoint not in allowed_routes and not session.get('guru_nama'):
         return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    creds = load_teachers_credentials()
     if request.method == 'POST':
         nama = request.form.get('nama', '').strip()
         password = request.form.get('password', '').strip()
         
         matched_teacher = None
-        for teacher_name in TEACHERS_CREDENTIALS:
-            if teacher_name.lower().replace(' ', '') == nama.lower().replace(' ', ''):
+        for teacher_name in creds:
+            clean_t = re.sub(r'[^a-zA-Z0-9]', '', teacher_name.lower())
+            clean_n = re.sub(r'[^a-zA-Z0-9]', '', nama.lower())
+            if clean_t == clean_n or clean_n in clean_t or clean_t in clean_n:
                 matched_teacher = teacher_name
                 break
 
         if not matched_teacher:
-            return render_template('login.html', error='Nama guru tidak terdaftar!')
+            return render_template('login.html', error='Nama guru tidak terdaftar!', teachers=creds.keys())
 
-        expected_pwd = TEACHERS_CREDENTIALS[matched_teacher]
+        expected_pwd = creds[matched_teacher]
         if password != expected_pwd:
-            return render_template('login.html', error='Password yang Anda masukkan salah!')
+            return render_template('login.html', error='Password yang Anda masukkan salah!', teachers=creds.keys())
 
         session['guru_nama'] = matched_teacher
         flash(f'Selamat datang, {matched_teacher}!', 'success')
         return redirect(url_for('index'))
 
-    return render_template('login.html')
+    return render_template('login.html', teachers=creds.keys())
+
+@app.route('/lupa_password', methods=['GET', 'POST'])
+def lupa_password():
+    creds = load_teachers_credentials()
+    if request.method == 'POST':
+        nama = request.form.get('nama', '').strip()
+        secret_key = request.form.get('secret_key', '').strip()
+        new_password = request.form.get('new_password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+
+        if secret_key != 'budimurni2':
+            return render_template('lupa_password.html', error='Kata kunci rahasia salah! Masukkan kata kunci \'budimurni2\'.', teachers=creds.keys())
+
+        matched_teacher = None
+        for teacher_name in creds:
+            clean_t = re.sub(r'[^a-zA-Z0-9]', '', teacher_name.lower())
+            clean_n = re.sub(r'[^a-zA-Z0-9]', '', nama.lower())
+            if clean_t == clean_n or clean_n in clean_t or clean_t in clean_n:
+                matched_teacher = teacher_name
+                break
+
+        if not matched_teacher:
+            return render_template('lupa_password.html', error='Nama guru tidak ditemukan!', teachers=creds.keys())
+
+        if not new_password:
+            return render_template('lupa_password.html', error='Password baru tidak boleh kosong!', teachers=creds.keys())
+
+        if new_password != confirm_password:
+            return render_template('lupa_password.html', error='Konfirmasi password baru tidak cocok!', teachers=creds.keys())
+
+        creds[matched_teacher] = new_password
+        save_teachers_credentials(creds)
+
+        flash(f'Password untuk {matched_teacher} berhasil diperbarui! Silakan login dengan password baru Anda.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('lupa_password.html', teachers=creds.keys())
 
 @app.route('/logout')
 def logout():
