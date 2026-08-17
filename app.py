@@ -268,7 +268,11 @@ def scan_student_results():
     visited_dirs = set()
 
     for root, dirs, files in os.walk(hasil_dir):
-        target_files = [f for f in files if f in ['hasil.txt', 'hasil_ujian.html'] or f.endswith('.txt') or f.endswith('.html')]
+        # Ignore top-level hasil_dir and README files
+        if os.path.abspath(root) == os.path.abspath(hasil_dir) or 'readme' in root.lower():
+            continue
+
+        target_files = [f for f in files if f in ['hasil.txt', 'hasil_ujian.html'] or (f.endswith('.txt') and 'readme' not in f.lower()) or f.endswith('.html')]
         if not target_files or root in visited_dirs:
             continue
             
@@ -681,12 +685,49 @@ def hasil_ujian():
                            classes=sorted_classes,
                            class_jurusan_json=json.dumps(class_jurusan_json))
 
+def render_txt_as_html(txt_content, title="Laporan Hasil Ujian"):
+    escaped_content = txt_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{title}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; }}
+        .report-card {{ background: #1e293b; padding: 35px; border-radius: 14px; border: 1px solid #334155; max-width: 800px; width: 100%; box-shadow: 0 12px 30px rgba(0,0,0,0.35); font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }}
+        .header {{ font-size: 20px; font-weight: 700; color: #38bdf8; text-align: center; border-bottom: 2px dashed #38bdf8; padding-bottom: 15px; margin-bottom: 25px; font-family: 'Segoe UI', sans-serif; letter-spacing: 0.05em; }}
+    </style>
+</head>
+<body>
+    <div class="report-card">
+        <div class="header">📋 LEMBAR HASIL UJIAN SISWA - PORTAL GURU</div>
+        {escaped_content}
+    </div>
+</body>
+</html>"""
+
 @app.route('/view-hasil/<path:filepath>')
 def view_hasil(filepath):
+    from flask import Response
     hasil_dir = get_student_hasil_dir()
-    full_path = os.path.abspath(os.path.join(hasil_dir, filepath))
+    clean_fp = filepath.replace('\\', '/')
+    full_path = os.path.abspath(os.path.join(hasil_dir, clean_fp))
+    
+    # Check if html exists in same directory
+    folder_dir = os.path.dirname(full_path)
+    html_candidate = os.path.join(folder_dir, 'hasil_ujian.html')
+    if os.path.exists(html_candidate):
+        return send_file(html_candidate)
+
     if os.path.exists(full_path) and full_path.startswith(os.path.abspath(hasil_dir)):
-        return send_file(full_path)
+        if full_path.endswith('.html'):
+            return send_file(full_path)
+        try:
+            with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+            return Response(render_txt_as_html(content), mimetype='text/html')
+        except Exception:
+            return send_file(full_path)
 
     cfg = load_sync_config()
     remote_url = cfg.get('remote_url', '').strip().rstrip('/')
@@ -703,15 +744,18 @@ def view_hasil(filepath):
                     pa_user = parts[0].strip()
                     
             headers = {'Authorization': f'Token {sync_token}'}
-            clean_fp = filepath.replace('\\', '/')
-            rel_fp = f"/home/{pa_user}/hasil ujian/{clean_fp}"
-            api_file_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{urllib.parse.quote(rel_fp, safe='/')}"
+            rel_fps = [
+                f"/home/{pa_user}/Demo-ulangan/hasil ujian/{clean_fp}",
+                f"/home/{pa_user}/hasil ujian/{clean_fp}"
+            ]
             
-            r_resp = requests.get(api_file_url, headers=headers, timeout=10)
-            if r_resp.status_code == 200:
-                from flask import Response
-                mtype = 'text/html' if clean_fp.endswith('.html') else 'text/plain'
-                return Response(r_resp.content, mimetype=mtype)
+            for rel_fp in rel_fps:
+                api_file_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{urllib.parse.quote(rel_fp, safe='/')}"
+                r_resp = requests.get(api_file_url, headers=headers, timeout=5)
+                if r_resp.status_code == 200:
+                    if rel_fp.endswith('.html'):
+                        return Response(r_resp.content, mimetype='text/html')
+                    return Response(render_txt_as_html(r_resp.text), mimetype='text/html')
         except Exception as e:
             print(f"[PA File Fetch Error] {e}")
 
@@ -720,8 +764,10 @@ def view_hasil(filepath):
         try:
             r_resp = requests.get(f"{remote_url}/view-hasil/{filepath}", timeout=10)
             if r_resp.status_code == 200:
-                from flask import Response
-                return Response(r_resp.content, mimetype=r_resp.headers.get('Content-Type', 'text/html'))
+                ct = r_resp.headers.get('Content-Type', '')
+                if 'html' in ct or filepath.endswith('.html'):
+                    return Response(r_resp.content, mimetype='text/html')
+                return Response(render_txt_as_html(r_resp.text), mimetype='text/html')
         except Exception:
             pass
 
