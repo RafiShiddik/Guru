@@ -757,3 +757,26 @@ body {
     padding: 1.5rem;
   }
 }
+
+/* Math Fraction Styling */
+.math-fraction {
+  display: inline-block;
+  vertical-align: middle;
+  text-align: center;
+  padding: 0 4px;
+  font-family: 'Cambria Math', 'Cambria', serif;
+  font-style: italic;
+}
+.math-num {
+  display: block;
+  border-bottom: 1.5px solid currentColor;
+  padding: 0 2px;
+  line-height: 1.1;
+  font-size: 0.9em;
+}
+.math-den {
+  display: block;
+  padding: 0 2px;
+  line-height: 1.1;
+  font-size: 0.9em;
+}
