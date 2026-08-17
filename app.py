@@ -176,12 +176,26 @@ def fetch_remote_materials():
     if requests is None:
         return []
     cfg = load_sync_config()
+    remote_url = cfg.get('remote_url', '').strip().rstrip('/')
     sync_token = cfg.get('sync_token', '').strip()
     remote_results = []
 
+    # 1. Try Remote Student App HTTP API endpoint (/api/get_soal_list)
+    if remote_url:
+        try:
+            resp = requests.get(f"{remote_url}/api/get_soal_list", timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                mats = data.get('materials', [])
+                if mats:
+                    return mats
+        except Exception as e:
+            print(f"[Remote Soal HTTP API Error] {e}")
+
+    # 2. Fallback to PythonAnywhere REST API if API token is configured
     if sync_token:
         try:
-            pa_user = 'achmadrafi12'
+            pa_user = '14214'
             pa_url = cfg.get('pa_account_url', '')
             if 'user/' in pa_url:
                 parts = pa_url.split('user/')[1].split('/')
@@ -189,7 +203,7 @@ def fetch_remote_materials():
                     pa_user = parts[0].strip()
                     
             headers = {'Authorization': f'Token {sync_token}'}
-            api_path_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/soal%20matematika/"
+            api_path_url = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/Demo-ulangan/soal%20matematika/"
             
             resp = requests.get(api_path_url, headers=headers, timeout=5)
             if resp.status_code == 200:
