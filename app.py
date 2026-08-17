@@ -30,8 +30,8 @@ CONFIG_FILE = os.path.join(BASE_DIR, 'sync_config.json')
 
 def load_sync_config():
     default_cfg = {
-        'remote_url': 'https://achmadrafi12.pythonanywhere.com',
-        'pa_account_url': 'https://www.pythonanywhere.com/user/achmadrafi12/',
+        'remote_url': 'https://14214.pythonanywhere.com',
+        'pa_account_url': 'https://www.pythonanywhere.com/user/14214/',
         'sync_token': ''
     }
     if os.path.exists(CONFIG_FILE):
@@ -386,9 +386,9 @@ def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, 
         return False, "Package 'requests' belum terinstall."
     cfg = load_sync_config()
     sync_token = cfg.get('sync_token', '').strip()
-    remote_url = cfg.get('remote_url', 'https://achmadrafi12.pythonanywhere.com').strip().rstrip('/')
+    remote_url = cfg.get('remote_url', 'https://14214.pythonanywhere.com').strip().rstrip('/')
     if not remote_url:
-        remote_url = 'https://achmadrafi12.pythonanywhere.com'
+        remote_url = 'https://14214.pythonanywhere.com'
 
     upload_success = False
     status_msg = ""
@@ -753,8 +753,8 @@ def sync_settings():
         return redirect(url_for('sync_settings'))
 
     return render_template('sync_settings.html', 
-                           current_remote_url=cfg.get('remote_url', 'https://achmadrafi12.pythonanywhere.com'),
-                           pa_account_url=cfg.get('pa_account_url', 'https://www.pythonanywhere.com/user/achmadrafi12/'),
+                           current_remote_url=cfg.get('remote_url', 'https://14214.pythonanywhere.com'),
+                           pa_account_url=cfg.get('pa_account_url', 'https://www.pythonanywhere.com/user/14214/'),
                            current_sync_token=cfg.get('sync_token', ''),
                            key_files=key_files)
 
