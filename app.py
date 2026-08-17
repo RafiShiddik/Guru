@@ -552,66 +552,88 @@ def index():
 def input_soal():
     if request.method == 'POST':
         materi = request.form.get('materi', '').strip()
-        kelas = request.form.get('kelas', '').strip()
-        jurusan = request.form.get('jurusan', 'Semua Jurusan').strip()
+        
+        kelases = request.form.getlist('kelas')
+        if not kelases:
+            k_single = request.form.get('kelas', '').strip()
+            if k_single:
+                kelases = [k_single]
+
+        jurusans_raw = request.form.getlist('jurusan')
+        if not jurusans_raw or 'Semua Jurusan' in jurusans_raw:
+            jurusan = "Semua Jurusan"
+        else:
+            jurusan = ", ".join(jurusans_raw)
 
         file_pg = request.files.get('file_pg')
         file_kunci_pg = request.files.get('file_kunci_pg')
         file_essay = request.files.get('file_essay')
         file_kunci_essay = request.files.get('file_kunci_essay')
 
-        if not materi or not kelas or not file_pg or not file_pg.filename:
-            flash('Materi, Kelas, dan File Soal Pilihan Ganda wajib diisi!', 'danger')
+        if not materi or not kelases or not file_pg or not file_pg.filename:
+            flash('Materi, Minimal 1 Kelas Target, dan File Soal Pilihan Ganda wajib diisi!', 'danger')
             return redirect(url_for('input_soal'))
 
         base_soal_dir = get_student_soal_base_dir()
-        norm_k = kelas if kelas.startswith('Kelas') else f"Kelas {kelas}"
-        target_dir = os.path.join(base_soal_dir, norm_k, materi)
-        
-        try:
-            os.makedirs(target_dir, exist_ok=True)
-        except Exception as e:
-            flash(f'Gagal membuat direktori soal: {str(e)}', 'danger')
-            return redirect(url_for('input_soal'))
 
         try:
-            # 1. Soal PG
-            pg_path = os.path.join(target_dir, f"Soal Ulangan Pilihan Ganda {norm_k}.docx")
-            file_pg.save(pg_path)
+            # Save file bytes in memory so we can save to multiple class folders if multi-selected
+            file_pg_bytes = file_pg.read()
+            file_kunci_pg_bytes = file_kunci_pg.read() if file_kunci_pg and file_kunci_pg.filename else None
+            file_essay_bytes = file_essay.read() if file_essay and file_essay.filename else None
+            file_kunci_essay_bytes = file_kunci_essay.read() if file_kunci_essay and file_kunci_essay.filename else None
 
-            # 2. Kunci PG (Optional)
-            kunci_pg_path = None
-            if file_kunci_pg and file_kunci_pg.filename:
-                kunci_pg_path = os.path.join(target_dir, f"Kunci Jawaban {norm_k}.docx")
-                file_kunci_pg.save(kunci_pg_path)
+            saved_classes = []
+            sync_status_list = []
 
-            # 3. Soal Essay (Optional)
-            essay_path = None
-            if file_essay and file_essay.filename:
-                essay_path = os.path.join(target_dir, f"Soal Essay {norm_k.lower()}.docx")
-                file_essay.save(essay_path)
+            for k_item in kelases:
+                norm_k = k_item if k_item.startswith('Kelas') else f"Kelas {k_item}"
+                target_dir = os.path.join(base_soal_dir, norm_k, materi)
+                os.makedirs(target_dir, exist_ok=True)
 
-            # 4. Kunci Essay (Optional)
-            kunci_essay_path = None
-            if file_kunci_essay and file_kunci_essay.filename:
-                kunci_essay_path = os.path.join(target_dir, "Kunci Jawaban essay.docx")
-                file_kunci_essay.save(kunci_essay_path)
+                # 1. Soal PG
+                pg_path = os.path.join(target_dir, f"Soal Ulangan Pilihan Ganda {norm_k}.docx")
+                with open(pg_path, 'wb') as f:
+                    f.write(file_pg_bytes)
 
-            # 5. Metadata JSON
-            meta = {
-                'materi': materi,
-                'kelas': norm_k,
-                'jurusan': jurusan,
-                'uploaded_by': session.get('guru_nama', 'Guru'),
-                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
-            with open(os.path.join(target_dir, 'metadata.json'), 'w', encoding='utf-8') as mf:
-                json.dump(meta, mf, indent=2)
+                # 2. Kunci PG
+                kunci_pg_path = None
+                if file_kunci_pg_bytes:
+                    kunci_pg_path = os.path.join(target_dir, f"Kunci Jawaban {norm_k}.docx")
+                    with open(kunci_pg_path, 'wb') as f:
+                        f.write(file_kunci_pg_bytes)
 
-            # Trigger Remote HTTP Sync if configured
-            sync_ok, sync_msg = sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path, essay_path, kunci_essay_path)
-            
-            flash(f'Berhasil! Soal "{materi}" ({norm_k}) tersimpan secara lokal. Sync Status: {sync_msg}', 'success')
+                # 3. Soal Essay
+                essay_path = None
+                if file_essay_bytes:
+                    essay_path = os.path.join(target_dir, f"Soal Essay {norm_k.lower()}.docx")
+                    with open(essay_path, 'wb') as f:
+                        f.write(file_essay_bytes)
+
+                # 4. Kunci Essay
+                kunci_essay_path = None
+                if file_kunci_essay_bytes:
+                    kunci_essay_path = os.path.join(target_dir, "Kunci Jawaban essay.docx")
+                    with open(kunci_essay_path, 'wb') as f:
+                        f.write(file_kunci_essay_bytes)
+
+                # 5. Metadata JSON
+                meta = {
+                    'materi': materi,
+                    'kelas': norm_k,
+                    'jurusan': jurusan,
+                    'uploaded_by': session.get('guru_nama', 'Guru'),
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+                with open(os.path.join(target_dir, 'metadata.json'), 'w', encoding='utf-8') as mf:
+                    json.dump(meta, mf, indent=2)
+
+                # Trigger Remote HTTP Sync for each class
+                sync_ok, sync_msg = sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path, essay_path, kunci_essay_path)
+                saved_classes.append(norm_k)
+                sync_status_list.append(sync_msg)
+
+            flash(f'Berhasil! Soal "{materi}" disebar ke {", ".join(saved_classes)} (Jurusan Target: {jurusan}). Status Sync: {sync_status_list[0]}', 'success')
             return redirect(url_for('index'))
 
         except Exception as e:

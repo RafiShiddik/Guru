@@ -22,29 +22,67 @@
         <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Pokok pembahasan / bab mata pelajaran.</div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="kelas">Tingkat Kelas <span style="color: var(--accent-rose);">*</span></label>
-        <select name="kelas" id="kelas" class="form-select" required>
-          <option value="Kelas X">Kelas X</option>
-          <option value="Kelas XI" selected>Kelas XI</option>
-          <option value="Kelas XII">Kelas XII</option>
-        </select>
-        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Pilih jenjang kelas ujian siswa.</div>
+      <div class="form-group" style="grid-column: span 1;">
+        <label class="form-label">Tingkat Kelas Target <span style="color: var(--accent-rose);">*</span></label>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; background: rgba(15, 23, 42, 0.5); padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid var(--border-glass);">
+          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.9rem;">
+            <input type="checkbox" name="kelas" value="Kelas X"> Kelas X
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.9rem;">
+            <input type="checkbox" name="kelas" value="Kelas XI" checked> Kelas XI
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.9rem;">
+            <input type="checkbox" name="kelas" value="Kelas XII"> Kelas XII
+          </label>
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Bisa pilih lebih dari satu kelas sekaligus.</div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="jurusan">Jurusan Target <span style="color: var(--accent-rose);">*</span></label>
-        <select name="jurusan" id="jurusan" class="form-select" required>
-          <option value="Semua Jurusan" selected>Semua Jurusan</option>
-          <option value="AKL">AKL (Akuntansi dan Keuangan Lembaga)</option>
-          <option value="MPLB">MPLB (Manajemen Perkantoran)</option>
-          <option value="TKJ">TKJ (Teknik Komputer dan Jaringan)</option>
-          <option value="BR">BR (Bisnis Ritel)</option>
-          <option value="DKV">DKV (Desain Komunikasi Visual)</option>
-        </select>
-        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Target siswa jurusan terkait.</div>
+      <div class="form-group" style="grid-column: span 2;">
+        <label class="form-label">Jurusan Target Ujian <span style="color: var(--accent-rose);">*</span></label>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.6rem; background: rgba(15, 23, 42, 0.5); padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid var(--border-glass);">
+          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem;">
+            <input type="checkbox" name="jurusan" value="Semua Jurusan" id="cb_semua_jurusan" checked onchange="handleSemuaJurusan(this)">
+            Semua Jurusan
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.88rem;">
+            <input type="checkbox" name="jurusan" value="AKL" class="cb-jur-item" onchange="handleSubJurusan()"> AKL
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.88rem;">
+            <input type="checkbox" name="jurusan" value="MPLB" class="cb-jur-item" onchange="handleSubJurusan()"> MPLB / MP
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.88rem;">
+            <input type="checkbox" name="jurusan" value="TKJ" class="cb-jur-item" onchange="handleSubJurusan()"> TKJ
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.88rem;">
+            <input type="checkbox" name="jurusan" value="BR" class="cb-jur-item" onchange="handleSubJurusan()"> BR / BD
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.88rem;">
+            <input type="checkbox" name="jurusan" value="DKV" class="cb-jur-item" onchange="handleSubJurusan()"> DKV
+          </label>
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Centang beberapa jurusan sekaligus jika soal digunakan untuk banyak jurusan.</div>
       </div>
     </div>
+
+    <script>
+      function handleSemuaJurusan(el) {
+        const items = document.querySelectorAll('.cb-jur-item');
+        if (el.checked) {
+          items.forEach(cb => cb.checked = false);
+        }
+      }
+      function handleSubJurusan() {
+        const items = document.querySelectorAll('.cb-jur-item');
+        const cbSemua = document.getElementById('cb_semua_jurusan');
+        const anyChecked = Array.from(items).some(cb => cb.checked);
+        if (anyChecked) {
+          cbSemua.checked = false;
+        } else {
+          cbSemua.checked = true;
+        }
+      }
+    </script>
 
     <!-- DOCX Upload Dropzones Section -->
     <div style="margin-bottom: 2rem;">
