@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>{% block title %}Portal Guru - Management Soal Ujian{% endblock %}</title>
   <meta name="description" content="Portal Guru SMK Budi Murni 2 - Management dan Input Soal Ujian">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -15,9 +15,12 @@
   <div class="bg-orb bg-orb-2"></div>
 
   {% if session.get('guru_nama') %}
+  <!-- Mobile Sidebar Overlay Backdrop -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
   <div class="app-container">
     <!-- Sidebar Navigation -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebarNav">
       <div>
         <div class="brand-header">
           <div class="brand-logo">
@@ -27,6 +30,9 @@
             <h2>PORTAL GURU</h2>
             <span>SMK Budi Murni 2</span>
           </div>
+          <button type="button" class="btn-close-sidebar" id="closeSidebarBtn" title="Tutup Menu">
+            <i class="ph ph-x"></i>
+          </button>
         </div>
 
         <ul class="nav-list">
@@ -82,13 +88,18 @@
     <main class="main-wrapper">
       <!-- Top Header -->
       <header class="top-header">
-        <div class="page-title">
-          <h1>{% block header_title %}Halaman Utama{% endblock %}</h1>
-          <p>{% block header_subtitle %}Manajemen dan Input Soal Ujian Siswa{% endblock %}</p>
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <button type="button" class="mobile-toggle-btn" id="toggleSidebarBtn" title="Buka Menu Navigation">
+            <i class="ph ph-list"></i>
+          </button>
+          <div class="page-title">
+            <h1>{% block header_title %}Halaman Utama{% endblock %}</h1>
+            <p>{% block header_subtitle %}Manajemen dan Input Soal Ujian Siswa{% endblock %}</p>
+          </div>
         </div>
         <div class="status-badge">
           <span class="status-dot"></span>
-          <span>Server Guru Active (Port 5050)</span>
+          <span class="status-text">Server Guru Active</span>
         </div>
       </header>
 
@@ -113,6 +124,29 @@
     {% block login_content %}{% endblock %}
   {% endif %}
 
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggleBtn = document.getElementById('toggleSidebarBtn');
+      const closeBtn = document.getElementById('closeSidebarBtn');
+      const sidebar = document.getElementById('sidebarNav');
+      const backdrop = document.getElementById('sidebarBackdrop');
+
+      function openSidebar() {
+        if (sidebar) sidebar.classList.add('mobile-active');
+        if (backdrop) backdrop.classList.add('active');
+      }
+
+      function closeSidebar() {
+        if (sidebar) sidebar.classList.remove('mobile-active');
+        if (backdrop) backdrop.classList.remove('active');
+      }
+
+      if (toggleBtn) toggleBtn.addEventListener('click', openSidebar);
+      if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+      if (backdrop) backdrop.addEventListener('click', closeSidebar);
+    });
+  </script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
+

@@ -3,6 +3,14 @@ import re
 import json
 import shutil
 import urllib.parse
+import zipfile
+import io
+import csv
+import tempfile
+import uuid
+from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, send_file
+
 try:
     import docx
 except ImportError:
@@ -12,12 +20,11 @@ try:
     import requests
 except ImportError:
     requests = None
-from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, send_file
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
+application = app
 app.secret_key = 'guru_portal_bm2_secure_key_2026'
 
 # Teacher accounts and passwords persistence
@@ -63,6 +70,9 @@ def load_sync_config():
                 default_cfg.update(data)
         except Exception:
             pass
+    if not default_cfg.get('remote_url') or 'achmadrafi12' in default_cfg.get('remote_url', ''):
+        default_cfg['remote_url'] = 'https://14214.pythonanywhere.com'
+        default_cfg['pa_account_url'] = 'https://www.pythonanywhere.com/user/14214/'
     return default_cfg
 
 def save_sync_config(cfg):
@@ -522,6 +532,8 @@ def sync_to_remote_server(norm_k, materi, jurusan, pg_path, kunci_pg_path=None, 
 
 @app.before_request
 def check_auth():
+    if not request.endpoint:
+        return
     allowed_routes = ['login', 'lupa_password', 'static']
     if request.endpoint not in allowed_routes and not session.get('guru_nama'):
         return redirect(url_for('login'))
@@ -1045,13 +1057,13 @@ def delete_hasil_siswa():
 
     # 2. Remote deletion request via HTTP API / PythonAnywhere REST API if configured
     cfg = load_sync_config()
-    remote_url = cfg.get('remote_url', '').strip().rstrip('/')
+    remote_url = cfg.get('remote_url', '').strip().rstrip('/') or 'https://14214.pythonanywhere.com'
     sync_token = cfg.get('sync_token', '').strip()
 
     if remote_url and requests:
         try:
             payload = {'rel_path': rel_path, 'student_name': student_name, 'kelas': kelas, 'materi': materi, 'jurusan': jurusan}
-            requests.post(f"{remote_url}/api/delete_student_result", data=payload, timeout=5)
+            requests.post(f"{remote_url}/api/delete_student_result", data=payload, timeout=6)
         except Exception as e:
             print(f"[Remote Delete Student Error] {e}")
 
@@ -1062,10 +1074,13 @@ def delete_hasil_siswa():
             if 'user/' in pa_url:
                 pa_user = pa_url.split('user/')[1].split('/')[0].strip() or '14214'
             headers = {'Authorization': f'Token {sync_token}'}
-            if rel_path:
-                remote_file_path = f"/home/{pa_user}/hasil ujian/{rel_path.replace('\\', '/')}"
-                del_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{urllib.parse.quote(remote_file_path, safe='/')}"
-                requests.delete(del_api, headers=headers, timeout=5)
+            clean_rel = rel_path.replace('\\', '/')
+            st_folder_remote = '/'.join(clean_rel.split('/')[:-1]) if '/' in clean_rel else clean_rel
+
+            for target in [clean_rel, st_folder_remote]:
+                if target:
+                    del_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path/home/{pa_user}/hasil ujian/{target}"
+                    requests.delete(del_api, headers=headers, timeout=5)
         except Exception as e:
             print(f"[PA Delete Student Error] {e}")
 

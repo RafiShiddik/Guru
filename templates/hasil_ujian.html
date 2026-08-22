@@ -5,7 +5,7 @@
 {% block header_subtitle %}Monitoring dan rekapitulasi nilai hasil ujian siswa berdasarkan Kelas dan Jurusan{% endblock %}
 
 {% block content %}
-<div style="display: flex; flex-direction: column; gap: 1.5rem;">
+<div style="display: flex; flex-direction: column; gap: 1.25rem;">
 
   <!-- Header Summary & Stats -->
   <div class="stats-grid">
@@ -40,65 +40,58 @@
     </div>
   </div>
 
-  <!-- Filter Section: Step 1 - Pilih Kelas -->
-  <div class="glass-card" style="padding: 1.5rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+  <!-- Filter Section: Sleek Dropdown Selection Controls -->
+  <div class="glass-card filter-container-card">
+    <div class="filter-header-flex">
       <div>
-        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-          <i class="ph ph-funnel" style="color: var(--accent-cyan);"></i> Filter Kelas & Jurusan
+        <h3 class="filter-title-heading">
+          <i class="ph ph-funnel" style="color: var(--accent-cyan);"></i> Filter Kelas, Jurusan & Materi
         </h3>
-        <p style="color: var(--text-secondary); font-size: 0.85rem;">Pilih kelas untuk menampilkan daftar jurusan siswa</p>
+        <p class="filter-subtitle-text">Klik opsi dropdown di bawah untuk memfilter lembar hasil ujian siswa</p>
       </div>
 
       <!-- Live Search Box -->
-      <div style="position: relative; width: 280px;">
-        <i class="ph ph-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-        <input type="text" id="search-input" class="form-control" placeholder="Cari nama siswa / materi..." style="padding-left: 2.5rem; font-size: 0.88rem;">
+      <div class="search-box-wrapper">
+        <i class="ph ph-magnifying-glass search-box-icon"></i>
+        <input type="text" id="search-input" class="form-control search-input-ctrl" placeholder="Cari nama siswa / materi...">
       </div>
     </div>
 
-    <!-- 1. Kelas Cards Selector -->
-    <div style="margin-bottom: 1.25rem;">
-      <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--accent-cyan); letter-spacing: 0.05em; margin-bottom: 0.6rem;">
-        1. Pilih Kelas:
+    <!-- Dropdown Controls Grid -->
+    <div class="filter-dropdowns-grid">
+      <!-- 1. Dropdown Pilih Kelas -->
+      <div class="filter-select-group">
+        <label class="filter-select-label" for="select-kelas">
+          <i class="ph ph-users-three" style="color: var(--accent-cyan);"></i> 1. Pilih Kelas:
+        </label>
+        <select id="select-kelas" class="form-select custom-dropdown-select" onchange="onKelasSelectChange(this.value)">
+          <option value="ALL">✨ Semua Kelas ({{ results|length }})</option>
+          {% for c in classes %}
+            <option value="{{ c }}">🏫 {{ c }}</option>
+          {% endfor %}
+        </select>
       </div>
-      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;" id="kelas-buttons-container">
-        <button type="button" class="btn btn-secondary active-kelas-btn" data-kelas="ALL" onclick="filterByKelas('ALL')" style="border-radius: var(--radius-full); padding: 0.5rem 1.25rem; font-size: 0.88rem; background: var(--gradient-primary); color: #fff; border: none;">
-          <i class="ph ph-squares-four"></i> Semua Kelas ({{ results|length }})
-        </button>
-        {% for c in classes %}
-          <button type="button" class="btn btn-secondary kelas-btn" data-kelas="{{ c }}" onclick="filterByKelas('{{ c }}')" style="border-radius: var(--radius-full); padding: 0.5rem 1.25rem; font-size: 0.88rem;">
-            <i class="ph ph-users-three"></i> {{ c }}
-          </button>
-        {% else %}
-          <span style="font-size: 0.82rem; color: var(--text-muted); font-style: italic; margin-left: 0.5rem;">(Belum ada kelas terdaftar)</span>
-        {% endfor %}
-      </div>
-    </div>
 
-    <!-- 2. Sub-filter Jurusan Pills (Appears when class is selected) -->
-    <div id="jurusan-filter-section" style="padding-top: 1rem; border-top: 1px dashed var(--border-glass);">
-      <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--accent-indigo); letter-spacing: 0.05em; margin-bottom: 0.6rem;">
-        2. Pilih Jurusan <span id="active-kelas-title" style="color: var(--text-secondary); font-weight: 400;">(Semua Kelas)</span>:
+      <!-- 2. Dropdown Pilih Jurusan -->
+      <div class="filter-select-group">
+        <label class="filter-select-label" for="select-jurusan">
+          <i class="ph ph-briefcase" style="color: var(--accent-indigo);"></i> 2. Pilih Jurusan:
+        </label>
+        <select id="select-jurusan" class="form-select custom-dropdown-select" onchange="onJurusanSelectChange(this.value)">
+          <option value="ALL">📁 Semua Jurusan</option>
+          <!-- Dynamic options rendered via JS -->
+        </select>
       </div>
-      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="jurusan-buttons-container">
-        <button type="button" class="btn btn-secondary active-jurusan-btn" data-jurusan="ALL" onclick="filterByJurusan('ALL')" style="border-radius: var(--radius-sm); padding: 0.35rem 0.85rem; font-size: 0.82rem; background: var(--accent-indigo); color: #fff; border: none;">
-          Semua Jurusan
-        </button>
-        <!-- Dynamic Jurusan Buttons rendered via JS -->
-      </div>
-    </div>
 
-    <!-- 3. Sub-filter Materi / Ulangan Harian Pills -->
-    <div id="materi-filter-section" style="padding-top: 1rem; border-top: 1px dashed var(--border-glass); margin-top: 1rem;">
-      <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #10b981; letter-spacing: 0.05em; margin-bottom: 0.6rem;">
-        3. Pilih Materi / Ulangan Harian <span id="active-materi-title" style="color: var(--text-secondary); font-weight: 400;">(Semua Materi)</span>:
-      </div>
-      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="materi-buttons-container">
-        <button type="button" class="btn btn-secondary active-materi-btn" data-materi="ALL" onclick="filterByMateri('ALL')" style="border-radius: var(--radius-sm); padding: 0.35rem 0.85rem; font-size: 0.82rem; background: #10b981; color: #fff; border: none;">
-          Semua Materi / Ulangan
-        </button>
-        <!-- Dynamic Materi Buttons rendered via JS -->
+      <!-- 3. Dropdown Pilih Materi / Ulangan -->
+      <div class="filter-select-group">
+        <label class="filter-select-label" for="select-materi">
+          <i class="ph ph-book-open" style="color: var(--accent-emerald);"></i> 3. Pilih Materi / Ulangan:
+        </label>
+        <select id="select-materi" class="form-select custom-dropdown-select" onchange="onMateriSelectChange(this.value)">
+          <option value="ALL">📖 Semua Materi / Ulangan</option>
+          <!-- Dynamic options rendered via JS -->
+        </select>
       </div>
     </div>
   </div>
@@ -106,7 +99,7 @@
   <style>
   @media print {
     body { background: #fff !important; color: #000 !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; padding: 15px !important; }
-    .sidebar, .top-header, .stats-grid, #kelas-buttons-container, #jurusan-filter-section, #materi-filter-section, .btn, #search-input, .ph, .no-print, #active-kelas-title, #active-materi-title { display: none !important; }
+    .sidebar, .top-header, .stats-grid, .filter-container-card, .btn, #search-input, .ph, .no-print { display: none !important; }
     .glass-card { background: #fff !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
     .custom-table { width: 100% !important; border-collapse: collapse !important; color: #000 !important; margin-top: 10px !important; }
     .custom-table th, .custom-table td { border: 1px solid #333 !important; padding: 6px 10px !important; color: #000 !important; background: transparent !important; }
@@ -117,19 +110,19 @@
 
   <!-- Table Results Card -->
   <div class="glass-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
-      <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Rekapitulasi Lembar Hasil Ujian</h2>
-      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" class="no-print">
-        <button type="button" class="btn btn-secondary" onclick="downloadHasilZip()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem; background: var(--accent-indigo); color: #fff; border: none; font-weight: 600;">
-          <i class="ph ph-file-zip"></i> Download ZIP Berkas
+    <div class="table-header-flex no-print">
+      <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">Rekapitulasi Lembar Hasil Ujian</h2>
+      <div class="table-action-btns">
+        <button type="button" class="btn btn-secondary action-btn-sm" onclick="downloadHasilZip()" style="background: var(--accent-indigo); color: #fff; border: none;">
+          <i class="ph ph-file-zip"></i> Download ZIP
         </button>
-        <button type="button" class="btn btn-secondary" onclick="deleteFilteredResults()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem; background: #ef4444; color: #fff; border: none; font-weight: 600;">
-          <i class="ph ph-trash"></i> Hapus Hasil Filter Aktif
+        <button type="button" class="btn btn-secondary action-btn-sm" onclick="deleteFilteredResults()" style="background: #ef4444; color: #fff; border: none;">
+          <i class="ph ph-trash"></i> Hapus Filter
         </button>
-        <button type="button" class="btn btn-secondary" onclick="window.print()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem; background: var(--gradient-primary); color: #fff; border: none; font-weight: 600;">
-          <i class="ph ph-printer"></i> Cetak Rekap (Print / PDF)
+        <button type="button" class="btn btn-secondary action-btn-sm" onclick="window.print()" style="background: var(--gradient-primary); color: #fff; border: none;">
+          <i class="ph ph-printer"></i> Cetak (PDF)
         </button>
-        <button type="button" class="btn btn-secondary" onclick="resetFilters()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem;">
+        <button type="button" class="btn btn-secondary action-btn-sm" onclick="resetFilters()">
           <i class="ph ph-arrow-counter-clockwise"></i> Reset Filter
         </button>
       </div>
@@ -140,7 +133,7 @@
         <table class="custom-table" id="results-table">
           <thead>
             <tr>
-              <th style="width: 50px;">No</th>
+              <th style="width: 45px;">No</th>
               <th>Nama Siswa</th>
               <th>Kelas</th>
               <th>Jurusan</th>
@@ -155,7 +148,7 @@
             <tr class="result-row" data-kelas="{{ r.kelas }}" data-jurusan="{{ r.jurusan }}" data-student="{{ r.student_name|lower }}" data-materi="{{ r.materi|lower }}" data-materi-raw="{{ r.materi }}">
               <td>{{ loop.index }}</td>
               <td>
-                <strong style="color: var(--text-primary); font-size: 0.95rem;">
+                <strong style="color: var(--text-primary); font-size: 0.92rem;">
                   <i class="ph ph-user" style="color: var(--accent-cyan); margin-right: 0.35rem;"></i> {{ r.student_name }}
                 </strong>
               </td>
@@ -166,26 +159,26 @@
                 <span class="badge-tag badge-indigo" style="font-weight: 700;">{{ r.jurusan }}</span>
               </td>
               <td>
-                <span style="font-size: 0.88rem; color: var(--text-primary);">{{ r.materi }}</span>
+                <span style="font-size: 0.85rem; color: var(--text-primary);">{{ r.materi }}</span>
               </td>
               <td>
                 {% if r.skor_pg != '-' %}
-                  <span class="badge-tag {% if r.skor_pg|float >= 30 %}badge-emerald{% elif r.skor_pg|float >= 20 %}badge-cyan{% else %}badge-rose{% endif %}" style="font-size: 0.85rem; font-weight: 700;">
+                  <span class="badge-tag {% if r.skor_pg|float >= 30 %}badge-emerald{% elif r.skor_pg|float >= 20 %}badge-cyan{% else %}badge-rose{% endif %}" style="font-size: 0.82rem; font-weight: 700;">
                     {{ r.skor_pg }}
                   </span>
                 {% else %}
-                  <span style="font-size: 0.85rem; color: var(--text-muted);">-</span>
+                  <span style="font-size: 0.82rem; color: var(--text-muted);">-</span>
                 {% endif %}
               </td>
               <td>
-                <span style="font-size: 0.82rem; color: var(--text-secondary);">{{ r.date }}</span>
+                <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ r.date }}</span>
               </td>
               <td style="text-align: center;" class="no-print">
                 <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center;">
-                  <a href="{{ url_for('view_hasil', filepath=r.view_rel_path) }}" target="_blank" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: var(--radius-sm);">
+                  <a href="{{ url_for('view_hasil', filepath=r.view_rel_path) }}" target="_blank" class="btn btn-secondary action-btn-xs">
                     <i class="ph ph-eye"></i> Lihat
                   </a>
-                  <button type="button" class="btn btn-secondary" onclick="deleteSingleResult('{{ r.rel_path }}', '{{ r.student_name }}', '{{ r.kelas }}', '{{ r.jurusan }}', '{{ r.materi }}')" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4);" title="Hapus Lembar Jawaban Siswa Ini">
+                  <button type="button" class="btn btn-secondary action-btn-xs btn-danger-xs" onclick="deleteSingleResult('{{ r.rel_path }}', '{{ r.student_name }}', '{{ r.kelas }}', '{{ r.jurusan }}', '{{ r.materi }}')" title="Hapus Lembar Jawaban Siswa Ini">
                     <i class="ph ph-trash"></i> Hapus
                   </button>
                 </div>
@@ -222,66 +215,32 @@
   let searchQuery = '';
 
   document.addEventListener('DOMContentLoaded', () => {
-    updateJurusanButtons();
-    updateMateriButtons();
+    updateJurusanSelectOptions();
+    updateMateriSelectOptions();
     
-    document.getElementById('search-input').addEventListener('input', (e) => {
-      searchQuery = e.target.value.toLowerCase().trim();
-      applyFilters();
-    });
+    const searchInp = document.getElementById('search-input');
+    if (searchInp) {
+      searchInp.addEventListener('input', (e) => {
+        searchQuery = e.target.value.toLowerCase().trim();
+        applyFilters();
+      });
+    }
   });
 
-  function filterByKelas(kelas) {
+  function onKelasSelectChange(kelas) {
     activeKelas = kelas;
     activeJurusan = 'ALL';
     activeMateri = 'ALL';
 
-    // Update Kelas button active styles
-    document.querySelectorAll('.kelas-btn, .active-kelas-btn').forEach(btn => {
-      if (btn.dataset.kelas === kelas) {
-        btn.style.background = 'var(--gradient-primary)';
-        btn.style.color = '#fff';
-        btn.style.border = 'none';
-      } else {
-        btn.style.background = 'rgba(255, 255, 255, 0.08)';
-        btn.style.color = 'var(--text-primary)';
-        btn.style.border = '1px solid var(--border-glass)';
-      }
-    });
-
-    // Update title text
-    const titleEl = document.getElementById('active-kelas-title');
-    titleEl.textContent = kelas === 'ALL' ? '(Semua Kelas)' : `(${kelas})`;
-
-    updateJurusanButtons();
-    updateMateriButtons();
+    updateJurusanSelectOptions();
+    updateMateriSelectOptions();
     applyFilters();
   }
 
-  function updateJurusanButtons() {
-    const container = document.getElementById('jurusan-buttons-container');
-    container.innerHTML = '';
-
-    const allBtn = document.createElement('button');
-    allBtn.type = 'button';
-    allBtn.className = 'btn btn-secondary';
-    allBtn.textContent = 'Semua Jurusan';
-    allBtn.style.borderRadius = 'var(--radius-sm)';
-    allBtn.style.padding = '0.35rem 0.85rem';
-    allBtn.style.fontSize = '0.82rem';
-    
-    if (activeJurusan === 'ALL') {
-      allBtn.style.background = 'var(--accent-indigo)';
-      allBtn.style.color = '#fff';
-      allBtn.style.border = 'none';
-    } else {
-      allBtn.style.background = 'rgba(255, 255, 255, 0.08)';
-      allBtn.style.color = 'var(--text-primary)';
-      allBtn.style.border = '1px solid var(--border-glass)';
-    }
-
-    allBtn.onclick = () => filterByJurusan('ALL');
-    container.appendChild(allBtn);
+  function updateJurusanSelectOptions() {
+    const sel = document.getElementById('select-jurusan');
+    if (!sel) return;
+    sel.innerHTML = '<option value="ALL">📁 Semua Jurusan</option>';
 
     let availableJurusans = new Set();
     if (activeKelas === 'ALL') {
@@ -293,62 +252,26 @@
     }
 
     Array.from(availableJurusans).sort().forEach(j => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-secondary';
-      btn.textContent = j;
-      btn.style.borderRadius = 'var(--radius-sm)';
-      btn.style.padding = '0.35rem 0.85rem';
-      btn.style.fontSize = '0.82rem';
-
-      if (activeJurusan === j) {
-        btn.style.background = 'var(--accent-indigo)';
-        btn.style.color = '#fff';
-        btn.style.border = 'none';
-      } else {
-        btn.style.background = 'rgba(255, 255, 255, 0.08)';
-        btn.style.color = 'var(--text-primary)';
-        btn.style.border = '1px solid var(--border-glass)';
-      }
-
-      btn.onclick = () => filterByJurusan(j);
-      container.appendChild(btn);
+      const opt = document.createElement('option');
+      opt.value = j;
+      opt.textContent = `🎯 ${j}`;
+      if (activeJurusan === j) opt.selected = true;
+      sel.appendChild(opt);
     });
   }
 
-  function filterByJurusan(jurusan) {
+  function onJurusanSelectChange(jurusan) {
     activeJurusan = jurusan;
     activeMateri = 'ALL';
-    updateJurusanButtons();
-    updateMateriButtons();
+
+    updateMateriSelectOptions();
     applyFilters();
   }
 
-  function updateMateriButtons() {
-    const container = document.getElementById('materi-buttons-container');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const allBtn = document.createElement('button');
-    allBtn.type = 'button';
-    allBtn.className = 'btn btn-secondary';
-    allBtn.textContent = 'Semua Materi / Ulangan';
-    allBtn.style.borderRadius = 'var(--radius-sm)';
-    allBtn.style.padding = '0.35rem 0.85rem';
-    allBtn.style.fontSize = '0.82rem';
-
-    if (activeMateri === 'ALL') {
-      allBtn.style.background = '#10b981';
-      allBtn.style.color = '#fff';
-      allBtn.style.border = 'none';
-    } else {
-      allBtn.style.background = 'rgba(255, 255, 255, 0.08)';
-      allBtn.style.color = 'var(--text-primary)';
-      allBtn.style.border = '1px solid var(--border-glass)';
-    }
-
-    allBtn.onclick = () => filterByMateri('ALL');
-    container.appendChild(allBtn);
+  function updateMateriSelectOptions() {
+    const sel = document.getElementById('select-materi');
+    if (!sel) return;
+    sel.innerHTML = '<option value="ALL">📖 Semua Materi / Ulangan</option>';
 
     const availableMateris = new Set();
     document.querySelectorAll('.result-row').forEach(row => {
@@ -364,38 +287,17 @@
       }
     });
 
-    const titleEl = document.getElementById('active-materi-title');
-    if (titleEl) {
-      titleEl.textContent = activeMateri === 'ALL' ? '(Semua Materi)' : `(${activeMateri})`;
-    }
-
     Array.from(availableMateris).sort().forEach(mat => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-secondary';
-      btn.textContent = mat;
-      btn.style.borderRadius = 'var(--radius-sm)';
-      btn.style.padding = '0.35rem 0.85rem';
-      btn.style.fontSize = '0.82rem';
-
-      if (activeMateri === mat) {
-        btn.style.background = '#10b981';
-        btn.style.color = '#fff';
-        btn.style.border = 'none';
-      } else {
-        btn.style.background = 'rgba(255, 255, 255, 0.08)';
-        btn.style.color = 'var(--text-primary)';
-        btn.style.border = '1px solid var(--border-glass)';
-      }
-
-      btn.onclick = () => filterByMateri(mat);
-      container.appendChild(btn);
+      const opt = document.createElement('option');
+      opt.value = mat;
+      opt.textContent = `📝 ${mat}`;
+      if (activeMateri === mat) opt.selected = true;
+      sel.appendChild(opt);
     });
   }
 
-  function filterByMateri(materi) {
+  function onMateriSelectChange(materi) {
     activeMateri = materi;
-    updateMateriButtons();
     applyFilters();
   }
 
@@ -442,7 +344,11 @@
     activeMateri = 'ALL';
     searchQuery = '';
     document.getElementById('search-input').value = '';
-    filterByKelas('ALL');
+
+    const selKelas = document.getElementById('select-kelas');
+    if (selKelas) selKelas.value = 'ALL';
+
+    onKelasSelectChange('ALL');
   }
 
   function downloadHasilZip() {
@@ -494,4 +400,3 @@
   }
 </script>
 {% endblock %}
-
