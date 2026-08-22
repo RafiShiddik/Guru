@@ -88,15 +88,51 @@
         <!-- Dynamic Jurusan Buttons rendered via JS -->
       </div>
     </div>
+
+    <!-- 3. Sub-filter Materi / Ulangan Harian Pills -->
+    <div id="materi-filter-section" style="padding-top: 1rem; border-top: 1px dashed var(--border-glass); margin-top: 1rem;">
+      <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #10b981; letter-spacing: 0.05em; margin-bottom: 0.6rem;">
+        3. Pilih Materi / Ulangan Harian <span id="active-materi-title" style="color: var(--text-secondary); font-weight: 400;">(Semua Materi)</span>:
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="materi-buttons-container">
+        <button type="button" class="btn btn-secondary active-materi-btn" data-materi="ALL" onclick="filterByMateri('ALL')" style="border-radius: var(--radius-sm); padding: 0.35rem 0.85rem; font-size: 0.82rem; background: #10b981; color: #fff; border: none;">
+          Semua Materi / Ulangan
+        </button>
+        <!-- Dynamic Materi Buttons rendered via JS -->
+      </div>
+    </div>
   </div>
+
+  <style>
+  @media print {
+    body { background: #fff !important; color: #000 !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; padding: 15px !important; }
+    .sidebar, .top-header, .stats-grid, #kelas-buttons-container, #jurusan-filter-section, #materi-filter-section, .btn, #search-input, .ph, .no-print, #active-kelas-title, #active-materi-title { display: none !important; }
+    .glass-card { background: #fff !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
+    .custom-table { width: 100% !important; border-collapse: collapse !important; color: #000 !important; margin-top: 10px !important; }
+    .custom-table th, .custom-table td { border: 1px solid #333 !important; padding: 6px 10px !important; color: #000 !important; background: transparent !important; }
+    .custom-table th:last-child, .custom-table td:last-child { display: none !important; }
+    .badge-tag { border: 1px solid #333 !important; color: #000 !important; background: transparent !important; }
+  }
+  </style>
 
   <!-- Table Results Card -->
   <div class="glass-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
       <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Rekapitulasi Lembar Hasil Ujian</h2>
-      <button type="button" class="btn btn-secondary" onclick="resetFilters()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem;">
-        <i class="ph ph-arrow-counter-clockwise"></i> Reset Filter
-      </button>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" class="no-print">
+        <button type="button" class="btn btn-secondary" onclick="downloadHasilZip()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem; background: var(--accent-indigo); color: #fff; border: none; font-weight: 600;">
+          <i class="ph ph-file-zip"></i> Download ZIP Berkas
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="deleteFilteredResults()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem; background: #ef4444; color: #fff; border: none; font-weight: 600;">
+          <i class="ph ph-trash"></i> Hapus Hasil Filter Aktif
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="window.print()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem; background: var(--gradient-primary); color: #fff; border: none; font-weight: 600;">
+          <i class="ph ph-printer"></i> Cetak Rekap (Print / PDF)
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="resetFilters()" style="padding: 0.4rem 0.85rem; font-size: 0.82rem;">
+          <i class="ph ph-arrow-counter-clockwise"></i> Reset Filter
+        </button>
+      </div>
     </div>
 
     {% if results %}
@@ -111,12 +147,12 @@
               <th>Materi Ujian</th>
               <th>Skor PG</th>
               <th>Tanggal</th>
-              <th style="text-align: center;">Aksi</th>
+              <th style="text-align: center;" class="no-print">Aksi</th>
             </tr>
           </thead>
           <tbody>
             {% for r in results %}
-            <tr class="result-row" data-kelas="{{ r.kelas }}" data-jurusan="{{ r.jurusan }}" data-student="{{ r.student_name|lower }}" data-materi="{{ r.materi|lower }}">
+            <tr class="result-row" data-kelas="{{ r.kelas }}" data-jurusan="{{ r.jurusan }}" data-student="{{ r.student_name|lower }}" data-materi="{{ r.materi|lower }}" data-materi-raw="{{ r.materi }}">
               <td>{{ loop.index }}</td>
               <td>
                 <strong style="color: var(--text-primary); font-size: 0.95rem;">
@@ -144,10 +180,15 @@
               <td>
                 <span style="font-size: 0.82rem; color: var(--text-secondary);">{{ r.date }}</span>
               </td>
-              <td style="text-align: center;">
-                <a href="{{ url_for('view_hasil', filepath=r.view_rel_path) }}" target="_blank" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: var(--radius-sm);">
-                  <i class="ph ph-eye"></i> Lihat Hasil
-                </a>
+              <td style="text-align: center;" class="no-print">
+                <div style="display: flex; gap: 0.35rem; justify-content: center; align-items: center;">
+                  <a href="{{ url_for('view_hasil', filepath=r.view_rel_path) }}" target="_blank" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: var(--radius-sm);">
+                    <i class="ph ph-eye"></i> Lihat
+                  </a>
+                  <button type="button" class="btn btn-secondary" onclick="deleteSingleResult('{{ r.rel_path }}', '{{ r.student_name }}', '{{ r.kelas }}', '{{ r.jurusan }}', '{{ r.materi }}')" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4);" title="Hapus Lembar Jawaban Siswa Ini">
+                    <i class="ph ph-trash"></i> Hapus
+                  </button>
+                </div>
               </td>
             </tr>
             {% endfor %}
@@ -177,10 +218,12 @@
   const classJurusanData = JSON.parse(document.getElementById('class-jurusan-data').textContent);
   let activeKelas = 'ALL';
   let activeJurusan = 'ALL';
+  let activeMateri = 'ALL';
   let searchQuery = '';
 
   document.addEventListener('DOMContentLoaded', () => {
     updateJurusanButtons();
+    updateMateriButtons();
     
     document.getElementById('search-input').addEventListener('input', (e) => {
       searchQuery = e.target.value.toLowerCase().trim();
@@ -190,7 +233,8 @@
 
   function filterByKelas(kelas) {
     activeKelas = kelas;
-    activeJurusan = 'ALL'; // reset jurusan filter when class changes
+    activeJurusan = 'ALL';
+    activeMateri = 'ALL';
 
     // Update Kelas button active styles
     document.querySelectorAll('.kelas-btn, .active-kelas-btn').forEach(btn => {
@@ -210,6 +254,7 @@
     titleEl.textContent = kelas === 'ALL' ? '(Semua Kelas)' : `(${kelas})`;
 
     updateJurusanButtons();
+    updateMateriButtons();
     applyFilters();
   }
 
@@ -217,7 +262,6 @@
     const container = document.getElementById('jurusan-buttons-container');
     container.innerHTML = '';
 
-    // "Semua Jurusan" button
     const allBtn = document.createElement('button');
     allBtn.type = 'button';
     allBtn.className = 'btn btn-secondary';
@@ -239,7 +283,6 @@
     allBtn.onclick = () => filterByJurusan('ALL');
     container.appendChild(allBtn);
 
-    // Get list of jurusans for active class
     let availableJurusans = new Set();
     if (activeKelas === 'ALL') {
       Object.values(classJurusanData).forEach(list => {
@@ -275,7 +318,84 @@
 
   function filterByJurusan(jurusan) {
     activeJurusan = jurusan;
+    activeMateri = 'ALL';
     updateJurusanButtons();
+    updateMateriButtons();
+    applyFilters();
+  }
+
+  function updateMateriButtons() {
+    const container = document.getElementById('materi-buttons-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = 'btn btn-secondary';
+    allBtn.textContent = 'Semua Materi / Ulangan';
+    allBtn.style.borderRadius = 'var(--radius-sm)';
+    allBtn.style.padding = '0.35rem 0.85rem';
+    allBtn.style.fontSize = '0.82rem';
+
+    if (activeMateri === 'ALL') {
+      allBtn.style.background = '#10b981';
+      allBtn.style.color = '#fff';
+      allBtn.style.border = 'none';
+    } else {
+      allBtn.style.background = 'rgba(255, 255, 255, 0.08)';
+      allBtn.style.color = 'var(--text-primary)';
+      allBtn.style.border = '1px solid var(--border-glass)';
+    }
+
+    allBtn.onclick = () => filterByMateri('ALL');
+    container.appendChild(allBtn);
+
+    const availableMateris = new Set();
+    document.querySelectorAll('.result-row').forEach(row => {
+      const rKelas = row.dataset.kelas;
+      const rJurusan = row.dataset.jurusan;
+      const rMateriRaw = row.dataset.materiRaw || row.dataset.materi;
+
+      const matchesK = (activeKelas === 'ALL' || rKelas === activeKelas);
+      const matchesJ = (activeJurusan === 'ALL' || rJurusan === activeJurusan);
+
+      if (matchesK && matchesJ && rMateriRaw) {
+        availableMateris.add(rMateriRaw);
+      }
+    });
+
+    const titleEl = document.getElementById('active-materi-title');
+    if (titleEl) {
+      titleEl.textContent = activeMateri === 'ALL' ? '(Semua Materi)' : `(${activeMateri})`;
+    }
+
+    Array.from(availableMateris).sort().forEach(mat => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-secondary';
+      btn.textContent = mat;
+      btn.style.borderRadius = 'var(--radius-sm)';
+      btn.style.padding = '0.35rem 0.85rem';
+      btn.style.fontSize = '0.82rem';
+
+      if (activeMateri === mat) {
+        btn.style.background = '#10b981';
+        btn.style.color = '#fff';
+        btn.style.border = 'none';
+      } else {
+        btn.style.background = 'rgba(255, 255, 255, 0.08)';
+        btn.style.color = 'var(--text-primary)';
+        btn.style.border = '1px solid var(--border-glass)';
+      }
+
+      btn.onclick = () => filterByMateri(mat);
+      container.appendChild(btn);
+    });
+  }
+
+  function filterByMateri(materi) {
+    activeMateri = materi;
+    updateMateriButtons();
     applyFilters();
   }
 
@@ -287,13 +407,15 @@
       const rKelas = row.dataset.kelas;
       const rJurusan = row.dataset.jurusan;
       const rStudent = row.dataset.student;
-      const rMateri = row.dataset.materi;
+      const rMateriLower = row.dataset.materi;
+      const rMateriRaw = row.dataset.materiRaw || rMateriLower;
 
       const matchesKelas = (activeKelas === 'ALL' || rKelas === activeKelas);
       const matchesJurusan = (activeJurusan === 'ALL' || rJurusan === activeJurusan);
-      const matchesSearch = !searchQuery || rStudent.includes(searchQuery) || rMateri.includes(searchQuery);
+      const matchesMateri = (activeMateri === 'ALL' || rMateriRaw === activeMateri);
+      const matchesSearch = !searchQuery || rStudent.includes(searchQuery) || rMateriLower.includes(searchQuery);
 
-      if (matchesKelas && matchesJurusan && matchesSearch) {
+      if (matchesKelas && matchesJurusan && matchesMateri && matchesSearch) {
         row.style.display = '';
         visibleCount++;
       } else {
@@ -317,9 +439,58 @@
   function resetFilters() {
     activeKelas = 'ALL';
     activeJurusan = 'ALL';
+    activeMateri = 'ALL';
     searchQuery = '';
     document.getElementById('search-input').value = '';
     filterByKelas('ALL');
+  }
+
+  function downloadHasilZip() {
+    const k = encodeURIComponent(activeKelas);
+    const j = encodeURIComponent(activeJurusan);
+    const m = encodeURIComponent(activeMateri);
+    window.location.href = `/download-hasil-zip?kelas=${k}&jurusan=${j}&materi=${m}`;
+  }
+
+  function deleteSingleResult(relPath, studentName, kelas, jurusan, materi) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus hasil ujian siswa "${studentName}" (${materi} - ${kelas})?`)) {
+      return;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/delete-hasil-siswa';
+
+    const fields = { rel_path: relPath, student_name: studentName, kelas: kelas, jurusan: jurusan, materi: materi };
+    for (const [key, val] of Object.entries(fields)) {
+      const inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = key;
+      inp.value = val || '';
+      form.appendChild(inp);
+    }
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  function deleteFilteredResults() {
+    const infoStr = `Kelas: ${activeKelas}, Jurusan: ${activeJurusan}, Materi: ${activeMateri}`;
+    if (!confirm(`PERINGATAN: Apakah Anda yakin ingin menghapus SELURUH berkas hasil ujian yang sesuai dengan filter saat ini?\n\n(${infoStr})`)) {
+      return;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/delete-hasil-filtered';
+
+    const fields = { kelas: activeKelas, jurusan: activeJurusan, materi: activeMateri };
+    for (const [key, val] of Object.entries(fields)) {
+      const inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = key;
+      inp.value = val || '';
+      form.appendChild(inp);
+    }
+    document.body.appendChild(form);
+    form.submit();
   }
 </script>
 {% endblock %}

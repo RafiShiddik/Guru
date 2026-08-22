@@ -809,12 +809,24 @@ def render_txt_as_html(txt_content, title="Laporan Hasil Ujian"):
     <meta charset="utf-8">
     <title>{title}</title>
     <style>
-        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; }}
+        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; }}
+        .actions-bar {{ max-width: 800px; width: 100%; margin-bottom: 15px; display: flex; justify-content: flex-end; gap: 10px; }}
+        .btn-print {{ background: #0284c7; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(2,132,199,0.3); transition: all 0.2s ease; }}
+        .btn-print:hover {{ background: #0369a1; transform: translateY(-1px); }}
         .report-card {{ background: #1e293b; padding: 35px; border-radius: 14px; border: 1px solid #334155; max-width: 800px; width: 100%; box-shadow: 0 12px 30px rgba(0,0,0,0.35); font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }}
         .header {{ font-size: 20px; font-weight: 700; color: #38bdf8; text-align: center; border-bottom: 2px dashed #38bdf8; padding-bottom: 15px; margin-bottom: 25px; font-family: 'Segoe UI', sans-serif; letter-spacing: 0.05em; }}
+        @media print {{
+            body {{ background: #fff !important; color: #000 !important; padding: 0 !important; }}
+            .actions-bar {{ display: none !important; }}
+            .report-card {{ background: #fff !important; color: #000 !important; border: none !important; box-shadow: none !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; }}
+            .header {{ color: #000 !important; border-bottom: 2px solid #000 !important; }}
+        }}
     </style>
 </head>
 <body>
+    <div class="actions-bar">
+        <button onclick="window.print()" class="btn-print">🖨️ Cetak / Simpan PDF Lembar Ujian</button>
+    </div>
     <div class="report-card">
         <div class="header">📋 LEMBAR HASIL UJIAN SISWA - PORTAL GURU</div>
         {escaped_content}
@@ -888,6 +900,222 @@ def view_hasil(filepath):
             pass
 
     flash('File hasil ujian tidak ditemukan.', 'danger')
+    return redirect(url_for('hasil_ujian'))
+
+def normalize_class_name(k_str):
+    if not k_str or k_str == 'ALL':
+        return 'ALL'
+    clean = k_str.replace('Kelas ', '').replace('kelas ', '').strip()
+    return f"Kelas {clean}"
+
+@app.route('/download-hasil-zip')
+def download_hasil_zip():
+    import zipfile
+    import io
+    
+    raw_k = urllib.parse.unquote(request.args.get('kelas', 'ALL')).strip()
+    raw_j = urllib.parse.unquote(request.args.get('jurusan', 'ALL')).strip()
+    raw_m = urllib.parse.unquote(request.args.get('materi', 'ALL')).strip()
+    
+    norm_k = normalize_class_name(raw_k)
+    
+    results = scan_student_results()
+    remote_res, remote_cls = fetch_remote_student_results()
+    if remote_res:
+        local_paths = {r['rel_path'] for r in results}
+        for rr in remote_res:
+            if rr['rel_path'] not in local_paths:
+                results.append(rr)
+
+    filtered_results = []
+    for r in results:
+        r_k = normalize_class_name(r.get('kelas', ''))
+        r_j = r.get('jurusan', '').strip()
+        r_m = r.get('materi', '').strip()
+        
+        match_k = (norm_k == 'ALL' or r_k == norm_k or r_k.replace('Kelas ', '') == norm_k.replace('Kelas ', ''))
+        match_j = (raw_j == 'ALL' or r_j == raw_j or raw_j.lower() in r_j.lower())
+        match_m = (raw_m == 'ALL' or r_m.lower() == raw_m.lower())
+        
+        if match_k and match_j and match_m:
+            filtered_results.append(r)
+            
+    if not filtered_results:
+        flash('Tidak ada berkas hasil ujian yang sesuai untuk di-download ke ZIP.', 'danger')
+        return redirect(url_for('hasil_ujian'))
+        
+    mem_zip = io.BytesIO()
+    
+    with zipfile.ZipFile(mem_zip, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+        rekap_lines = ["No,Nama Siswa,Kelas,Jurusan,Materi,Skor PG,Benar PG,Tanggal"]
+        added_files = set()
+        
+        for idx, r in enumerate(filtered_results, start=1):
+            student_name = r['student_name']
+            k_name = r['kelas']
+            j_name = r['jurusan']
+            m_name = r['materi']
+            
+            rekap_lines.append(f'{idx},"{student_name}","{k_name}","{j_name}","{m_name}","{r.get("skor_pg","-")}","{r.get("benar_pg","-")}","{r.get("date","")}"')
+            
+            # 1. Check local directory first
+            st_folder = os.path.dirname(r.get('full_path', ''))
+            written_local = False
+            if st_folder and os.path.exists(st_folder) and os.path.isdir(st_folder):
+                for f_name in os.listdir(st_folder):
+                    f_path = os.path.join(st_folder, f_name)
+                    if os.path.isfile(f_path):
+                        zip_entry_path = f"{k_name}/{j_name}/{m_name}/{student_name}/{f_name}"
+                        if zip_entry_path not in added_files:
+                            zf.write(f_path, zip_entry_path)
+                            added_files.add(zip_entry_path)
+                            written_local = True
+
+            # 2. If not written locally or if remote, fetch content and add to ZIP
+            if not written_local:
+                view_rel = r.get('view_rel_path') or r.get('rel_path')
+                if view_rel:
+                    try:
+                        with app.test_client() as client:
+                            resp = client.get(f"/view-hasil/{view_rel}")
+                            if resp.status_code == 200:
+                                f_name = 'hasil_ujian.html' if 'html' in view_rel.lower() else 'hasil.txt'
+                                zip_entry_path = f"{k_name}/{j_name}/{m_name}/{student_name}/{f_name}"
+                                if zip_entry_path not in added_files:
+                                    zf.writestr(zip_entry_path, resp.data)
+                                    added_files.add(zip_entry_path)
+                    except Exception as e:
+                        print(f"[Zip Remote Fetch Error] {e}")
+
+        zf.writestr("REKAPITULASI_NILAI.csv", "\n".join(rekap_lines))
+        
+    mem_zip.seek(0)
+    
+    clean_k = norm_k.replace(' ', '_')
+    clean_j = raw_j.replace(' ', '_')
+    clean_m = raw_m.replace(' ', '_')
+    zip_filename = f"Hasil_Ujian_{clean_k}_{clean_j}_{clean_m}.zip"
+    
+    return send_file(
+        mem_zip,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=zip_filename
+    )
+
+@app.route('/delete-hasil-siswa', methods=['POST'])
+def delete_hasil_siswa():
+    rel_path = request.form.get('rel_path', '').strip()
+    student_name = request.form.get('student_name', '').strip()
+    kelas = request.form.get('kelas', '').strip()
+    jurusan = request.form.get('jurusan', '').strip()
+    materi = request.form.get('materi', '').strip()
+
+    if not rel_path and not (student_name and kelas):
+        flash('Data siswa tidak valid untuk dihapus.', 'danger')
+        return redirect(url_for('hasil_ujian'))
+
+    hasil_dir = get_student_hasil_dir()
+    deleted_local = False
+
+    # 1. Delete local folder if exists
+    if rel_path:
+        clean_fp = rel_path.replace('\\', '/')
+        full_path = os.path.abspath(os.path.join(hasil_dir, clean_fp))
+        if os.path.exists(full_path) and full_path.startswith(os.path.abspath(hasil_dir)):
+            target_dir = os.path.dirname(full_path)
+            try:
+                if os.path.exists(target_dir) and os.path.isdir(target_dir):
+                    shutil.rmtree(target_dir)
+                    deleted_local = True
+            except Exception as e:
+                print(f"[Delete Local Student Error] {e}")
+
+    # Fallback search by student_name, kelas, materi, jurusan
+    if not deleted_local and student_name:
+        for r in scan_student_results():
+            if r['student_name'].lower() == student_name.lower() and (not kelas or r['kelas'] == kelas):
+                st_folder = os.path.dirname(r.get('full_path', ''))
+                if st_folder and os.path.exists(st_folder) and os.path.isdir(st_folder):
+                    try:
+                        shutil.rmtree(st_folder)
+                        deleted_local = True
+                    except Exception as e:
+                        print(f"[Delete Local Student Fallback Error] {e}")
+
+    # 2. Remote deletion request via HTTP API / PythonAnywhere REST API if configured
+    cfg = load_sync_config()
+    remote_url = cfg.get('remote_url', '').strip().rstrip('/')
+    sync_token = cfg.get('sync_token', '').strip()
+
+    if remote_url and requests:
+        try:
+            payload = {'rel_path': rel_path, 'student_name': student_name, 'kelas': kelas, 'materi': materi, 'jurusan': jurusan}
+            requests.post(f"{remote_url}/api/delete_student_result", data=payload, timeout=5)
+        except Exception as e:
+            print(f"[Remote Delete Student Error] {e}")
+
+    if sync_token:
+        try:
+            pa_user = '14214'
+            pa_url = cfg.get('pa_account_url', '')
+            if 'user/' in pa_url:
+                pa_user = pa_url.split('user/')[1].split('/')[0].strip() or '14214'
+            headers = {'Authorization': f'Token {sync_token}'}
+            if rel_path:
+                remote_file_path = f"/home/{pa_user}/hasil ujian/{rel_path.replace('\\', '/')}"
+                del_api = f"https://www.pythonanywhere.com/api/v0/user/{pa_user}/files/path{urllib.parse.quote(remote_file_path, safe='/')}"
+                requests.delete(del_api, headers=headers, timeout=5)
+        except Exception as e:
+            print(f"[PA Delete Student Error] {e}")
+
+    flash(f'Hasil ujian siswa "{student_name or rel_path}" berhasil dihapus.', 'success')
+    return redirect(url_for('hasil_ujian'))
+
+@app.route('/delete-hasil-filtered', methods=['POST'])
+def delete_hasil_filtered():
+    raw_k = request.form.get('kelas', 'ALL').strip()
+    raw_j = request.form.get('jurusan', 'ALL').strip()
+    raw_m = request.form.get('materi', 'ALL').strip()
+
+    norm_k = normalize_class_name(raw_k)
+    results = scan_student_results()
+
+    deleted_count = 0
+
+    for r in results:
+        r_k = normalize_class_name(r.get('kelas', ''))
+        r_j = r.get('jurusan', '').strip()
+        r_m = r.get('materi', '').strip()
+
+        match_k = (norm_k == 'ALL' or r_k == norm_k or r_k.replace('Kelas ', '') == norm_k.replace('Kelas ', ''))
+        match_j = (raw_j == 'ALL' or r_j == raw_j or raw_j.lower() in r_j.lower())
+        match_m = (raw_m == 'ALL' or r_m.lower() == raw_m.lower())
+
+        if match_k and match_j and match_m:
+            st_folder = os.path.dirname(r.get('full_path', ''))
+            if st_folder and os.path.exists(st_folder) and os.path.isdir(st_folder):
+                try:
+                    shutil.rmtree(st_folder)
+                    deleted_count += 1
+                except Exception as e:
+                    print(f"[Bulk Delete Error] {e}")
+
+    # Trigger remote bulk deletion
+    cfg = load_sync_config()
+    remote_url = cfg.get('remote_url', '').strip().rstrip('/')
+    if remote_url and requests:
+        try:
+            payload = {'kelas': norm_k, 'jurusan': raw_j, 'materi': raw_m}
+            requests.post(f"{remote_url}/api/delete_student_result", data=payload, timeout=6)
+        except Exception as e:
+            print(f"[Remote Bulk Delete Error] {e}")
+
+    if deleted_count > 0:
+        flash(f'Berhasil menghapus {deleted_count} berkas hasil ujian untuk Filter (Kelas: {raw_k}, Jurusan: {raw_j}, Materi: {raw_m}).', 'success')
+    else:
+        flash('Tidak ada berkas hasil ujian lokal yang dapat dihapus.', 'info')
+
     return redirect(url_for('hasil_ujian'))
 
 @app.route('/sync-settings', methods=['GET', 'POST'])
